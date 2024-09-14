@@ -1,6 +1,6 @@
 {
   "name": "rm-ng-device-detection",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "license": "MIT",
   "description": "A highly optimized and fully customizable pure angular component for value range selection.",
   "keywords": [

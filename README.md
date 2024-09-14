@@ -15,28 +15,32 @@ To install this library, run:
 $ npm install rm-ng-device-detection --save
 ```
 
+## Live DEMO
+
+[See the implementation here](https://stackblitz.com/edit/stackblitz-starters-terqbx)
+
+
 In your component where you want to use the Device Service
 
 ```typescript
   import { Component } from '@angular/core';
   ...
-  import { RmNgDeviceDetectionService } from 'rm-ng-device-detection';
+  import { RmNgDeviceDetectionService, DeviceInfo } from 'rm-ng-device-detection';
   ...
   @Component({
     selector: 'app-root',
     standalone: true,
-    imports: [RouterOutlet],
     templateUrl: './app.component.html',
     styleUrl: './app.component.scss',
   })
 
   export class HomeComponent {
-    deviceInfo = null;
+    deviceInfo: null | DeviceInfo = null;
     constructor(private service: RmNgDeviceDetectionService) {
-      this.epicFunction();
+      this.getDeviceInfo();
     }
     ...
-    epicFunction() {
+    getDeviceInfo(): void {
       this.deviceInfo = this.service.getDeviceInfo();
       const isMobile = this.service.isMobile();
       const isTablet = this.service.isTablet();
