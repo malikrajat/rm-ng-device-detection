@@ -79,6 +79,7 @@ Holds the following properties
 | Version | Ng   |
 |---------|------|
 | 1.x.x   | 18.x |
+| 2.x.x   | 19.x |
 
 
 <a name="issues"/>
