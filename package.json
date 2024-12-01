@@ -35,8 +35,8 @@
     "url": "https://github.com/malikrajat/rm-ng-device-detection.git/issues"
   },
   "peerDependencies": {
-    "@angular/common": "^18.2.0",
-    "@angular/core": "^18.2.0"
+    "@angular/common": "^19.0.1",
+    "@angular/core": "^19.0.1"
   },
   "dependencies": {
     "tslib": "^2.3.0"
