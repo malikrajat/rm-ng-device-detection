@@ -1,6 +1,6 @@
 {
   "name": "rm-ng-device-detection",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "license": "MIT",
   "description": "A highly optimized and fully customizable pure angular component for value range selection.",
   "keywords": [
@@ -29,7 +29,7 @@
   "homepage": "https://github.com/malikrajat/rm-ng-device-detection#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/malikrajat/rm-ng-device-detection.git"
+    "url": "git+https://github.com/malikrajat/rm-ng-device-detection.git"
   },
   "bugs": {
     "url": "https://github.com/malikrajat/rm-ng-device-detection.git/issues"
