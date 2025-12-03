@@ -1,6 +1,6 @@
 {
   "name": "rm-ng-device-detection",
-  "version": "3.0.1",
+  "version": "4.0.0",
   "license": "MIT",
   "description": "A highly optimized and fully customizable pure angular component for value range selection.",
   "keywords": [
@@ -19,38 +19,105 @@
     "device detection",
     "rm-ng-device-detection",
     "angular device detector",
-    "angular18"
+    "angular",
+    "angular-21",
+    "device-detection",
+    "device-detector",
+    "ng-device-detection",
+    "rm-ng-device-detection",
+    "browser-detection",
+    "user-agent",
+    "mobile-detection",
+    "tablet-detection",
+    "desktop-detection",
+    "os-detection",
+    "platform-detection",
+    "responsive",
+    "responsive-ui",
+    "angular-library",
+    "angular-directive",
+    "angular-service",
+    "angular-ssr",
+    "angular-universal",
+    "server-side-rendering",
+    "ssr-safe",
+    "pwa",
+    "micro-frontend",
+    "microfrontend",
+    "framework-agnostic-device-detection",
+    "typescript",
+    "web-utils",
+    "utility-library",
+    "runtime-detection",
+    "environment-detection"
   ],
   "author": {
     "name": "Rajat Malik",
     "email": "mr.rajatmalik@gmail.com",
-    "url": "https://www.linkedin.com/in/errajatmalik/"
+    "url": "https://www.rajatmalik.dev/"
   },
+  "contributors": [
+    {
+      "name": "Rajat Malik",
+      "email": "mr.rajatmalik@gmail.com"
+    }
+  ],
+  "maintainers": [
+    {
+      "name": "Rajat Malik",
+      "email": "mr.rajatmalik@gmail.com"
+    }
+  ],
   "homepage": "https://github.com/malikrajat/rm-ng-device-detection#readme",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/malikrajat/rm-ng-device-detection.git"
   },
   "bugs": {
-    "url": "https://github.com/malikrajat/rm-ng-device-detection.git/issues"
+    "url": "https://github.com/malikrajat/rm-ng-device-detection.git/issues",
+    "email": "mr.rajatmalik@gmail.com"
   },
   "peerDependencies": {
-    "@angular/common": "^20.0.0",
-    "@angular/core": "^20.0.0"
+    "@angular/core": "^20.0.0 || ^21.0.0",
+    "@angular/common": "^20.0.0 || ^21.0.0"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
   },
   "dependencies": {
-    "tslib": "^2.3.0"
+    "tslib": "^2.6.0"
   },
   "sideEffects": false,
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "funding": {
+    "type": "individual",
+    "url": "https://github.com/sponsors/malikrajat"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "ng-add": {
+    "save": "dependencies"
+  },
   "type": "module",
   "module": "fesm2022/rm-ng-device-detection.mjs",
-  "typings": "index.d.ts",
+  "typings": "types/rm-ng-device-detection.d.ts",
   "exports": {
     "./package.json": {
       "default": "./package.json"
     },
     ".": {
-      "types": "./index.d.ts",
+      "types": "./types/rm-ng-device-detection.d.ts",
       "default": "./fesm2022/rm-ng-device-detection.mjs"
     }
   }
