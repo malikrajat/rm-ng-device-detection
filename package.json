@@ -1,55 +1,50 @@
 {
   "name": "rm-ng-device-detection",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "license": "MIT",
-  "description": "A highly optimized and fully customizable pure angular component for value range selection.",
+  "description": "Angular device detection library for browser, OS, platform, mobile, tablet, desktop, and user-agent detection with SSR-safe runtime checks.",
   "keywords": [
-    "library",
-    "angularlibrary",
-    "ng",
-    "Angular",
-    "native",
-    "angular-native",
-    "angular-component",
-    "custom",
-    "security",
-    "performance",
-    "device",
-    "device detector",
-    "device detection",
-    "rm-ng-device-detection",
-    "angular device detector",
     "angular",
-    "angular-21",
+    "angular-20",
+    "angular-26",
+    "angular-library",
+    "angular-service",
+    "angular-device-detection",
     "device-detection",
+    "device detection",
     "device-detector",
-    "ng-device-detection",
-    "rm-ng-device-detection",
+    "device detector",
     "browser-detection",
+    "browser-detect",
     "user-agent",
+    "user agent",
+    "user-agent-parser",
+    "ua-parser",
+    "platform-detection",
+    "platform-detect",
+    "os-detection",
     "mobile-detection",
+    "mobile-detect",
     "tablet-detection",
     "desktop-detection",
-    "os-detection",
-    "platform-detection",
-    "responsive",
+    "device-type",
+    "orientation-detection",
+    "runtime-detection",
+    "environment-detection",
+    "responsive-design",
     "responsive-ui",
-    "angular-library",
-    "angular-directive",
-    "angular-service",
+    "ssr",
     "angular-ssr",
     "angular-universal",
     "server-side-rendering",
     "ssr-safe",
     "pwa",
     "micro-frontend",
-    "microfrontend",
-    "framework-agnostic-device-detection",
     "typescript",
     "web-utils",
     "utility-library",
-    "runtime-detection",
-    "environment-detection"
+    "ng-device-detection",
+    "rm-ng-device-detection"
   ],
   "author": {
     "name": "Rajat Malik",
@@ -74,12 +69,12 @@
     "url": "git+https://github.com/malikrajat/rm-ng-device-detection.git"
   },
   "bugs": {
-    "url": "https://github.com/malikrajat/rm-ng-device-detection.git/issues",
+    "url": "https://github.com/malikrajat/rm-ng-device-detection/issues",
     "email": "mr.rajatmalik@gmail.com"
   },
   "peerDependencies": {
-    "@angular/core": "^20.0.0 || ^21.0.0",
-    "@angular/common": "^20.0.0 || ^21.0.0"
+    "@angular/common": ">=16.0.0 <=26.0.0",
+    "@angular/core": ">=16.0.0 <=26.0.0"
   },
   "engines": {
     "node": ">=16.0.0",
@@ -109,7 +104,19 @@
   "ng-add": {
     "save": "dependencies"
   },
+  "ng-update": {
+    "packageGroup": [
+      "rm-ng-device-detection"
+    ]
+  },
+  "directories": {
+    "lib": "./src",
+    "doc": "./docs"
+  },
+  "packageManager": "pnpm@10.11.1",
   "type": "module",
+  "private": false,
+  "readme": "README.md",
   "module": "fesm2022/rm-ng-device-detection.mjs",
   "typings": "types/rm-ng-device-detection.d.ts",
   "exports": {

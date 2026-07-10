@@ -1,10 +1,19 @@
 # Changelog
-All notable changes to **rm-ng-device-detection** will be documented in this file.
 
-This project follows **[Semantic Versioning](https://semver.org/)** and the format is based on  
-**[Keep a Changelog](https://keepachangelog.com/en/1.0.0/)**.
+All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
----
+## [5.0.0](https://github-personal/malikrajat/device-detectione/compare/v4.0.0...v5.0.0) (2026-07-10)
+### Added
+- Added `vitest` and `istanbul-lib-instrument` to support improved test tooling.
+
+### Changed
+- Upgraded Angular runtime and build packages from `21.x` to `22.0.1`.
+- Upgraded `ng-packagr` from `21.x` to `22.0.0`.
+- Upgraded TypeScript from `5.9.3` to `6.0.3`.
+- Bumped package version to `5.0.0`.
+
+### Fixed
+- Fixed dist packaging script to copy `README.md` into `dist/README.md` (instead of copying `LICENSE`).
 
 ## [4.0.0] - 2025-11-29
 ### Added
