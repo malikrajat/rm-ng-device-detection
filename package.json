@@ -1,6 +1,6 @@
 {
   "name": "rm-ng-device-detection",
-  "version": "5.0.0",
+  "version": "5.0.1",
   "license": "MIT",
   "description": "Angular device detection library for browser, OS, platform, mobile, tablet, desktop, and user-agent detection with SSR-safe runtime checks.",
   "keywords": [

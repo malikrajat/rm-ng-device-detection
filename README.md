@@ -4,7 +4,7 @@
   <img src="https://img.shields.io/npm/v/rm-ng-device-detection.svg" alt="npm version">
   <img src="https://img.shields.io/badge/Stability-production--ready-success" alt="Production ready">
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="license">
-  <img src="https://img.shields.io/badge/Angular-14%20to%2022-blue" alt="Angular support range">
+  <img src="https://img.shields.io/badge/Angular-16%20to%22-blue" alt="Angular support range">
   <img src="https://img.shields.io/badge/Ivy-compatible-blue" alt="Ivy compatible">
   <img src="https://img.shields.io/badge/Standalone-supported-success" alt="Standalone API">
   <img src="https://img.shields.io/badge/AOT-compatible-blue" alt="AOT compatible">
@@ -47,11 +47,20 @@ A lightweight, tree-shakable Angular library for detecting and classifying devic
 ## Features
 
 -  **Device Detection** - Identify mobile, tablet, and desktop devices
--  **OS & Browser Detection** - Detect operating systems and browsers
+-  **OS & Browser Detection** - Detect operating systems, browsers, and their versions
+-  **Modern Device Coverage** - Recognises current-generation phones (Pixel, OnePlus, Xiaomi, Oppo, Vivo, Realme, Nothing, Huawei/Honor), tablets (Surface, Galaxy Tab, Lenovo Tab, Amazon Fire), and desktop-class devices (Windows PC, Linux PC, Steam Deck, Surface Laptop, Chromebook)
+-  **New OS Support** - HarmonyOS, Chrome OS, Unix, plus Windows/macOS/Android/iOS version detection through the latest releases
+-  **Linux Distro Detection** - Best-effort distro name (Ubuntu, Fedora, Mint, Debian, Arch, Manjaro, Pop!_OS, openSUSE, Kali, UOS, Kylin, openEuler, and more)
+-  **Bot / Crawler Detection** - Flag Googlebot, Bingbot, social scrapers, `curl`, Postman, headless Chrome, and other automated clients so they don't skew your analytics
+-  **Viewport & Screen Info** - Access viewport width/height, physical resolution, and device pixel ratio (HiDPI/Retina)
+-  **Framework-free Parser** - Use `parseUserAgent()` anywhere (Node scripts, SSR middleware) without Angular, `window`, or `navigator`
+-  **Extensible** - Register your own device/browser/OS matchers without forking the library
+-  **Performance Mode** - Opt-in `basicMode` skips ~150 obsolete legacy regexes for high-traffic paths, plus a built-in bounded parse cache
+-  **Resilient** - Never throws; malformed or empty user agents degrade gracefully to `Unknown`
 -  **Lightweight & Fast** - Minimal bundle size with tree-shaking support
 -  **Easy Integration** - Simple service-based API
--  **Standalone Support** - Works with Angular 14+ standalone components
--  **No Dependencies** - Pure TypeScript implementation
+-  **Standalone Support** - Works with Angular standalone components
+-  **No Runtime Dependencies** - Pure TypeScript implementation (only `tslib`)
 -  **SSR Compatible** - Works with Angular Universal
 
 ---
@@ -127,7 +136,7 @@ yarn add rm-ng-device-detection
 Import the service in your component (works with both standalone and module-based apps):
 
 ```typescript
-import { Component, OnInit } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { RmNgDeviceDetectionService, DeviceInfo } from 'rm-ng-device-detection';
 
 @Component({
@@ -136,9 +145,8 @@ import { RmNgDeviceDetectionService, DeviceInfo } from 'rm-ng-device-detection';
   styleUrls: ['./app.component.scss']
 })
 export class AppComponent implements OnInit {
-  deviceInfo: DeviceInfo | null = null;
-
-  constructor(private deviceService: RmNgDeviceDetectionService) {}
+  protected deviceInfo: DeviceInfo | null = null;
+  protected readonly deviceService = inject(RmNgDeviceDetectionService)
 
   ngOnInit(): void {
     this.detectDevice();
@@ -167,10 +175,16 @@ export class AppComponent implements OnInit {
 @if (deviceInfo) {
   <div>
     <h2>Device Information</h2>
-    <p>Device Type: {{ deviceInfo.device }}</p>
-    <p>Browser: {{ deviceInfo.browser }}</p>
+    <p>Device: {{ deviceInfo.device }}</p>
+    <p>Device Type: {{ deviceInfo.deviceType }}</p>
+    <p>Browser: {{ deviceInfo.browser }} ({{ deviceInfo.browser_version }})</p>
     <p>Operating System: {{ deviceInfo.os }}</p>
     <p>OS Version: {{ deviceInfo.os_version }}</p>
+    <p>Linux Distro: {{ deviceInfo.osDistro }}</p>
+    <p>Orientation: {{ deviceInfo.orientation }}</p>
+    <p>Viewport: {{ deviceInfo.width }} x {{ deviceInfo.height }}</p>
+    <p>Resolution: {{ deviceInfo.resolution }} @ {{ deviceInfo.devicePixelRatio }}x</p>
+    <p>Is Bot: {{ deviceInfo.isBot }}</p>
   </div>
 }
 
@@ -194,54 +208,159 @@ The `getDeviceInfo()` method returns a `DeviceInfo` object with the following pr
 
 ```typescript
 interface DeviceInfo {
-  browser: string;        // Browser name (e.g., 'Chrome', 'Firefox', 'Safari')
-  os: string;            // Operating system (e.g., 'Windows', 'macOS', 'Android')
-  device: string;        // Device type (e.g., 'mobile', 'tablet', 'desktop')
-  userAgent: string;     // Full user agent string
-  os_version: string;    // Operating system version
+  userAgent: string;         // Full user agent string
+  os: string;                // Operating system (e.g., 'Windows', 'Mac', 'Android', 'iOS', 'HarmonyOS', 'Linux', 'Chrome-OS')
+  browser: string;           // Browser name (e.g., 'Chrome', 'Firefox', 'Safari', 'MS-Edge-Chromium', 'Vivaldi', 'Yandex')
+  device: string;            // Device brand/model (e.g., 'iPhone', 'Google Pixel', 'Samsung', 'Windows PC', 'Steam Deck')
+  os_version: string;        // Operating system version (e.g., 'windows-10-or-11', 'android-15', 'mac-os-x-15')
+  browser_version: string;   // Browser version string (e.g., '124.0.0.0'), or '0' when unknown
+  deviceType: string;        // 'mobile' | 'tablet' | 'desktop' | 'unknown'
+  orientation: string;       // 'portrait' | 'landscape' | 'Unknown'
+  osDistro: string;          // Best-effort Linux distro name (e.g., 'Ubuntu', 'Fedora'); 'Unknown' otherwise
+  isBot: boolean;            // true for known crawlers/bots/HTTP clients
+  width: number;             // CSS pixel viewport width (window.innerWidth); 0 outside a browser
+  height: number;            // CSS pixel viewport height (window.innerHeight); 0 outside a browser
+  resolution: string;        // Physical screen resolution as "{width}x{height}" (e.g., '1920x1080')
+  devicePixelRatio: number;  // window.devicePixelRatio (1 standard, 2+ Retina/HiDPI); 1 outside a browser
+}
+```
+
+### Additional Exported Types
+
+```typescript
+// Returned by the standalone parseUserAgent() function. Same as DeviceInfo but WITHOUT the
+// viewport-only fields (width, height, resolution, devicePixelRatio), since a UA string alone
+// carries no notion of "the current browser window".
+type ParsedUserAgent = Omit<DeviceInfo, 'width' | 'height' | 'resolution' | 'devicePixelRatio'>;
+
+enum DeviceType {
+  Mobile = 'mobile',
+  Tablet = 'tablet',
+  Desktop = 'desktop',
+  Unknown = 'unknown',
+}
+
+enum OrientationType {
+  Portrait = 'portrait',
+  Landscape = 'landscape',
+}
+
+interface DetectionOptions {
+  // Skip ~150 obsolete 2009-2015-era feature-phone/tablet regexes and rely on the modern brand
+  // list + generic Android/HarmonyOS heuristics instead. Roughly halves the regexes evaluated
+  // per call with no accuracy loss on real 2020+ traffic. Off by default. Turn on for
+  // high-traffic / perf-sensitive paths (e.g. SSR middleware running on every request).
+  basicMode?: boolean;
 }
 ```
 
 ### Service Methods
 
 #### `getDeviceInfo(): DeviceInfo`
-Returns complete device information including browser, OS, device type, user agent, and OS version.
+Returns the complete `DeviceInfo` object for the current environment.
 
 **Example:**
 ```typescript
 const deviceInfo = this.deviceService.getDeviceInfo();
 console.log(deviceInfo);
-// Output: { browser: 'Chrome', os: 'Windows', device: 'desktop', ... }
+// { browser: 'Chrome', os: 'Windows', device: 'Windows PC', deviceType: 'desktop', isBot: false, ... }
 ```
 
-#### `isMobile(): boolean`
-Returns `true` if the device is a mobile device (Android, iPhone, Windows Phone, etc.).
+#### `setDeviceInfo(ua?: string, options?: DetectionOptions): void`
+Re-runs full detection for the given user agent (defaults to the current browser's). Pass
+`{ basicMode: true }` for a faster, lighter parse on high-traffic paths. Called automatically in
+the constructor, but you can call it again to re-parse a custom UA string.
 
 **Example:**
 ```typescript
-if (this.deviceService.isMobile()) {
-  // Load mobile-optimized components
-}
+// Parse a specific UA in fast mode
+this.deviceService.setDeviceInfo(someUserAgent, { basicMode: true });
+const info = this.deviceService.getDeviceInfo();
 ```
 
-#### `isTablet(): boolean`
-Returns `true` if the device is a tablet (iPad, Android tablets, etc.).
+#### `isMobile(userAgent?: string): boolean`
+Returns `true` if the device is a mobile device (Android phones, iPhone, etc.).
+
+#### `isTablet(userAgent?: string): boolean`
+Returns `true` if the device is a tablet (iPad including iPadOS 13+ desktop mode, Android/HarmonyOS tablets, Surface, etc.).
+
+#### `isDesktop(userAgent?: string): boolean`
+Returns `true` if the device is a desktop/laptop. Now uses the OS family (Windows/macOS/Linux/Chrome OS/Unix) as the primary signal, so generic desktops are no longer misreported as `Unknown`.
+
+#### `updateScreenInfo(): void`
+Refreshes `width`, `height`, `resolution`, and `devicePixelRatio` from the current window/screen
+state without re-running the (comparatively expensive) UA parsing. Ideal to call from a
+`window:resize` listener.
 
 **Example:**
 ```typescript
-if (this.deviceService.isTablet()) {
-  // Adjust layout for tablets
+@HostListener('window:resize')
+onResize(): void {
+  this.deviceService.updateScreenInfo();
 }
 ```
 
-#### `isDesktop(): boolean`
-Returns `true` if the device is a desktop/laptop computer.
+#### `detectWindows11ViaClientHints(): Promise<boolean>`
+Async, best-effort Windows 11 detection via the User-Agent Client Hints API. Browsers freeze the
+UA string's platform token at `Windows NT 10.0` for both Windows 10 and 11, so this is the only
+reliable way to tell them apart. Resolves `false` when Client Hints are unsupported (Safari,
+Firefox, older Chromium).
 
 **Example:**
 ```typescript
-if (this.deviceService.isDesktop()) {
-  // Enable advanced desktop features
+if (await this.deviceService.detectWindows11ViaClientHints()) {
+  this.deviceService.os_version = 'windows-11';
 }
+```
+
+#### `isBraveViaFeatureDetection(): Promise<boolean>`
+Async, best-effort Brave detection via feature detection. Brave deliberately reports itself as
+plain Chrome in the UA string, so it can only be detected at runtime.
+
+**Example:**
+```typescript
+const isBrave = await this.deviceService.isBraveViaFeatureDetection();
+```
+
+### Service Properties
+
+In addition to the methods above, the service exposes the parsed values directly:
+`userAgent`, `os`, `browser`, `device`, `os_version`, `browser_version`, `osDistro`, `isBot`,
+`deviceType`, `orientation`, `width`, `height`, `resolution`, `devicePixelRatio`, and `ready`
+(a boolean set to `true` once detection has run at least once).
+
+### Standalone Functions (framework-free)
+
+These are exported at the package root and work without Angular — perfect for SSR middleware,
+Node scripts, or parsing an arbitrary request's `User-Agent` header.
+
+#### `parseUserAgent(ua: string, options?: DetectionOptions): ParsedUserAgent`
+Pure, dependency-free UA parser. Never touches `window`/`navigator`, is safe to call with any UA
+string, is internally cached, and never throws (falls back to an all-`Unknown` result on error).
+
+```typescript
+import { parseUserAgent } from 'rm-ng-device-detection';
+
+const info = parseUserAgent(request.headers['user-agent'] ?? '');
+if (info.isBot) {
+  // serve a lightweight response to crawlers
+}
+```
+
+#### `registerCustomDevice(name: string, regex: RegExp): void`
+#### `registerCustomBrowser(name: string, regex: RegExp, versionRegex?: RegExp): void`
+#### `registerCustomOS(name: string, regex: RegExp, opts?: { isDesktopOS?: boolean }): void`
+#### `clearCustomDetectors(): void`
+Register custom matchers (checked with top priority, before the built-in lists) so you can detect
+in-house apps/kiosks or override a misdetected built-in without forking. `clearCustomDetectors()`
+removes all registrations (handy in tests).
+
+```typescript
+import { registerCustomDevice, registerCustomBrowser, registerCustomOS } from 'rm-ng-device-detection';
+
+registerCustomDevice('MyCorp Kiosk', /MyCorpKioskApp\/[\d.]+/);
+registerCustomBrowser('MyBrowser', /MyBrowser\//, /MyBrowser\/([\d.]+)/);
+registerCustomOS('MyOS', /MyOS/, { isDesktopOS: true });
 ```
 
 ---
@@ -341,26 +460,125 @@ export class StyledComponent implements OnInit {
 }
 ```
 
+### Example 4: Filtering Out Bots in Analytics
+
+```typescript
+import { Component, OnInit } from '@angular/core';
+import { RmNgDeviceDetectionService } from 'rm-ng-device-detection';
+
+@Component({ selector: 'app-bot-aware' })
+export class BotAwareComponent implements OnInit {
+  constructor(private deviceService: RmNgDeviceDetectionService) {}
+
+  ngOnInit(): void {
+    const info = this.deviceService.getDeviceInfo();
+    if (info.isBot) {
+      // Skip analytics / heavy hydration for crawlers (Googlebot, curl, headless Chrome, ...)
+      return;
+    }
+    // ...track real user
+  }
+}
+```
+
+### Example 5: Reacting to Viewport & Screen Changes
+
+```typescript
+import { Component, HostListener, OnInit } from '@angular/core';
+import { RmNgDeviceDetectionService } from 'rm-ng-device-detection';
+
+@Component({
+  selector: 'app-viewport',
+  template: `
+    <p>Viewport: {{ width }} x {{ height }}</p>
+    <p>Resolution: {{ resolution }} @ {{ dpr }}x</p>
+  `
+})
+export class ViewportComponent implements OnInit {
+  width = 0;
+  height = 0;
+  resolution = '';
+  dpr = 1;
+
+  constructor(private deviceService: RmNgDeviceDetectionService) {}
+
+  ngOnInit(): void {
+    this.sync();
+  }
+
+  @HostListener('window:resize')
+  onResize(): void {
+    // Cheap: refreshes screen values without re-parsing the user agent
+    this.deviceService.updateScreenInfo();
+    this.sync();
+  }
+
+  private sync(): void {
+    const info = this.deviceService.getDeviceInfo();
+    this.width = info.width;
+    this.height = info.height;
+    this.resolution = info.resolution;
+    this.dpr = info.devicePixelRatio;
+  }
+}
+```
+
 ---
 
 ## Configuration & Advanced Usage
 
 ### Server-Side Rendering (SSR)
 
-The library is compatible with Angular Universal. The user agent is automatically detected from the request headers:
+The library is compatible with Angular Universal. In the browser the user agent is detected from
+`window.navigator`. On the server, use the framework-free `parseUserAgent()` helper with the
+incoming request's `User-Agent` header:
 
 ```typescript
-// Works automatically with SSR - no special configuration needed
-const deviceInfo = this.deviceService.getDeviceInfo();
+import { parseUserAgent } from 'rm-ng-device-detection';
+
+// Express / Angular Universal server handler
+const info = parseUserAgent(req.headers['user-agent'] ?? '');
+console.log(info.deviceType, info.os, info.browser, info.isBot);
 ```
+
+### Performance / Lightweight Mode
+
+On high-traffic paths (e.g. SSR middleware running on every request), enable `basicMode` to skip
+~150 obsolete legacy device regexes:
+
+```typescript
+// Service
+this.deviceService.setDeviceInfo(ua, { basicMode: true });
+
+// Standalone
+const info = parseUserAgent(ua, { basicMode: true });
+```
+
+Repeated parses of the same UA are also served from a built-in bounded cache automatically.
 
 ### Custom User Agent
 
-If you need to test with a custom user agent string, you can initialize the service with your own user agent:
+All detection methods accept an optional user agent string, and you can re-run full detection
+with `setDeviceInfo()`:
 
 ```typescript
-// Note: This is typically not needed as the library auto-detects
-// This example is for testing purposes only
+this.deviceService.isMobile('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 ...)');
+this.deviceService.isTablet('Mozilla/5.0 (iPad; CPU OS 17_0 ...)');
+this.deviceService.setDeviceInfo('Mozilla/5.0 (Windows NT 10.0; Win64; x64) ...');
+const info = this.deviceService.getDeviceInfo();
+```
+
+### Registering Custom Detectors
+
+```typescript
+import { registerCustomDevice, registerCustomBrowser, clearCustomDetectors } from 'rm-ng-device-detection';
+
+// Detect an in-house app that isn't part of the built-in lists
+registerCustomDevice('MyCorp Kiosk', /MyCorpKioskApp\/[\d.]+/);
+registerCustomBrowser('MyBrowser', /MyBrowser\//, /MyBrowser\/([\d.]+)/);
+
+// Later, e.g. in tests:
+clearCustomDetectors();
 ```
 
 ---
@@ -374,6 +592,55 @@ If you need to test with a custom user agent string, you can initialize the serv
 -  **Feature Detection**: Enable/disable features based on device capabilities
 -  **Progressive Web Apps**: Optimize PWA experience per device
 -  **A/B Testing**: Run device-specific experiments
+
+---
+
+## Detection Scope
+
+The library ships with an extensive, regularly modernised set of detection patterns.
+
+### Operating Systems
+
+| Category | Supported |
+|----------|-----------|
+| Desktop | Windows, Mac (macOS), Linux, Chrome OS, Unix |
+| Mobile | iOS, Android, HarmonyOS, Windows Phone, Firefox OS |
+
+### OS Versions
+
+| OS | Versions |
+|----|----------|
+| Windows | 3.11, 95, 98, ME, CE, NT 4.0, 2000, XP, Server 2003, Vista, 7, 8, 8.1, 10, 10-or-11 (see Windows 11 note) |
+| macOS | Mac OS X 10.2 - 10.16, 11.0 |
+| Android | 9, 10, 11, 12, 13, 14, 15, 16 |
+| iOS | iPhone OS versions |
+| Windows Phone | 7.5, 8.1, 10 |
+
+> **Windows 11 note:** browsers freeze the UA at `Windows NT 10.0` for both Windows 10 and 11, so the UA-string result is `windows-10-or-11`. Use the async `detectWindows11ViaClientHints()` for accurate Windows 11 detection.
+
+### Browsers
+
+Chrome, Firefox, Safari, Opera, Internet Explorer, MS-Edge, MS-Edge-Chromium, Samsung Internet,
+UC Browser, Vivaldi, Yandex, DuckDuckGo, Facebook Messenger.
+
+> **Brave & Arc** are Chromium-based and deliberately report as `Chrome`. Use the async `isBraveViaFeatureDetection()` to detect Brave at runtime.
+
+### Devices
+
+| Type | Examples |
+|------|----------|
+| Modern phones | Google Pixel, OnePlus, Xiaomi, Oppo, Vivo, Realme, Nothing Phone, Huawei/Honor, iPhone, generic Android/HarmonyOS phones |
+| Legacy phones | Samsung, Motorola, LG, Sony, HTC, Nokia Lumia, BlackBerry, Micromax, and many more |
+| Tablets | iPad (incl. iPadOS 13+ desktop mode), Samsung Galaxy Tab, Surface, Lenovo Tab, Amazon Fire, generic Android/HarmonyOS tablets, plus many legacy brands |
+| Desktop-class | Windows PC, Linux PC, Steam Deck, Surface Laptop, Chromebook, Macintosh, Tesla |
+| Consoles / TV | PS4, PS5, Xbox, Chromecast, Apple TV, Google TV, PS Vita, Nintendo |
+
+### Linux Distributions (best-effort)
+
+Ubuntu, Fedora, Linux Mint, Debian, Manjaro, Arch Linux, Pop!_OS, elementary OS, Zorin OS,
+openSUSE, deepin, Kali, Raspbian, UOS, Kylin, openEuler, Red Flag.
+
+> Distro names are only present in some user agents (mainly Firefox); most Chromium-based browsers report a generic `Linux`, in which case `osDistro` is `Unknown`.
 
 ---
 
@@ -457,19 +724,19 @@ Yes. It uses Angular's `providedIn: 'root'` strategy and exports only the symbol
 
 ### Does it have any external dependencies?
 
-No. The library is built with pure TypeScript and does not depend on any third-party runtime libraries.
+No runtime dependencies beyond `tslib` (the standard TypeScript runtime helper). The library is built with pure TypeScript and does not depend on any third-party detection libraries.
 
 ### Which Angular versions are supported?
 
-The library is compatible with Angular 14 through 22 and supports both standalone and NgModule-based applications.
+The library is compatible with Angular 16 through 26 (see `peerDependencies`) and supports both standalone and NgModule-based applications.
 
 ### Why is my device being detected as `unknown`?
 
-This can happen when the user agent string doesn't match any pattern in the detection regexes. You can pass the raw user agent string directly to `getDeviceInfo()` or update to the latest version.
+This is far less common since the detection engine was modernised: generic Windows/Linux/Chrome OS desktops and current-generation Android phones/tablets are now recognised via OS-family and generic heuristics. It can still happen for a genuinely unrecognised or empty user agent. You can pass the raw user agent string directly to any detection method, register a custom detector, or update to the latest version.
 
 ### Can I use a custom user agent for testing?
 
-Yes. All detection methods accept an optional user agent string:
+Yes. All detection methods accept an optional user agent string, and you can also re-parse via `setDeviceInfo(ua, options)` or the framework-free `parseUserAgent(ua, options)`:
 
 ```typescript
 this.deviceService.isMobile('Mozilla/5.0 (iPhone...');
@@ -477,13 +744,25 @@ this.deviceService.isTablet('Mozilla/5.0 (iPad...');
 this.deviceService.isDesktop('Mozilla/5.0 (Windows...');
 ```
 
+### Can I detect bots and crawlers?
+
+Yes. `DeviceInfo.isBot` is `true` for known crawlers, social scrapers, and HTTP clients (Googlebot, Bingbot, `curl`, Postman, headless Chrome, and more), so you can exclude them from analytics or serve lighter responses.
+
+### How do I detect Windows 11 or Brave?
+
+Both require runtime APIs, not the UA string. Use the async `detectWindows11ViaClientHints()` (via User-Agent Client Hints) and `isBraveViaFeatureDetection()` methods on the service.
+
+### Can I use it without Angular (e.g. in SSR middleware or a Node script)?
+
+Yes. Import the framework-free `parseUserAgent(ua, options)` function, which never touches `window`/`navigator` and never throws.
+
 ### Does it work with lazy-loaded modules?
 
 Yes. Because the service is `providedIn: 'root'`, it is available application-wide without any module imports or eager-loading requirements.
 
 ### How do I get the full device info object?
 
-Use `getDeviceInfo()`, which returns a `DeviceInfo` object containing `device`, `os`, `browser`, `userAgent`, `os_version`, `browser_version`, `deviceType`, and `orientation`.
+Use `getDeviceInfo()`, which returns a `DeviceInfo` object containing `userAgent`, `os`, `browser`, `device`, `os_version`, `browser_version`, `deviceType`, `orientation`, `osDistro`, `isBot`, `width`, `height`, `resolution`, and `devicePixelRatio`.
 
 ### Does the library detect browser and OS versions?
 
@@ -721,8 +1000,8 @@ Special thanks to:
 ### All Packages
 
 Browse all my packages:
-- <a href="https://www.npmjs.com/settings/codewithrajat/packages" target="_blank" rel="noopener noreferrer">npm: @codewithrajat</a>
-- <a href="https://www.npmjs.com/settings/rajatmalik/packages" target="_blank" rel="noopener noreferrer">npm: rajatmalik</a>
+- <a href="https://www.npmjs.com/~codewithrajat" target="_blank" rel="noopener noreferrer">npm: @codewithrajat</a>
+- <a href="https://www.npmjs.com/~rajatmalik" target="_blank" rel="noopener noreferrer">npm: rajatmalik</a>
 - <a href="https://github.com/malikrajat?tab=repositories" target="_blank" rel="noopener noreferrer">GitHub: @malikrajat</a>
 
 ---

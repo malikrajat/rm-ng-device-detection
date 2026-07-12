@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [5.0.1](https://github-personal/malikrajat/device-detectione/compare/v5.0.0...v5.0.1) (2026-07-11)
+### Added
+- New `DeviceInfo` fields: `osDistro` (best-effort Linux distro name), `isBot` (crawler/bot/HTTP-client detection), `width`/`height` (CSS pixel viewport), `resolution` (physical screen resolution), and `devicePixelRatio` (HiDPI/Retina ratio).
+- Standalone, Angular-free `parseUserAgent(ua, options)` function and `ParsedUserAgent` type for parsing arbitrary user-agent strings (e.g. from SSR request headers) without touching `window`/`navigator`.
+- `DetectionOptions.basicMode` to skip ~150 obsolete legacy device regexes for a meaningful perf win on high-traffic paths (e.g. SSR middleware).
+- Extensibility hooks: `registerCustomDevice()`, `registerCustomBrowser()`, `registerCustomOS()`, and `clearCustomDetectors()` for adding custom detection without forking the library.
+- `RmNgDeviceDetectionService.updateScreenInfo()` public method to refresh viewport/screen values (e.g. from a `window:resize` listener) without re-running UA parsing.
+- `RmNgDeviceDetectionService.detectWindows11ViaClientHints()` async helper to distinguish Windows 11 from Windows 10 via the User-Agent Client Hints API.
+- `RmNgDeviceDetectionService.isBraveViaFeatureDetection()` async helper for Brave detection via feature detection.
+- `ready` flag on the service, set once detection has run at least once.
+- New detection constants: `BOTS_RE`, `LINUX_DISTROS_RE`, `OS_VERSION_GROUPS`, generic Android/HarmonyOS mobile & tablet heuristics, PS5/Xbox devices, and `HEAVY_LEGACY_MOBILE_KEYS`/`HEAVY_LEGACY_TABLET_KEYS`.
+- Added `baseline-browser-mapping` (`2.10.42`) dependency.
+
+### Changed
+- Refactored the detection engine into pure, dependency-free, testable resolver functions (`resolveOS`, `resolveBrowser`, `resolveDevice`, `resolveOsVersion`, `resolveOsDistro`, etc.), replacing the previous reduce-based mapping logic.
+- Added a bounded LRU-style result cache so repeatedly parsing the same UA avoids re-running ~250 regexes.
+- Version-detection now only tests OS-relevant version regexes via `OS_VERSION_GROUPS` instead of all of them.
+- Bumped package version to `5.0.1`.
+
+### Fixed
+- Generic Windows/Linux desktops that previously resolved to `Unknown` are now correctly detected as desktop, using OS family as the primary signal.
+- Specific phone brand/model matches now win over the generic "no Mobile token = tablet" heuristic, fixing legacy phones being misclassified as tablets.
+- Consoles/TV/streaming devices (PS4/PS5/Xbox, Chromecast, Apple TV, Google TV, Vita) are correctly excluded from desktop classification even on Linux-based OSes.
+- Blank/missing user-agent strings now report honestly as `Unknown` instead of defaulting to desktop.
+- Detection never throws: malformed UAs, bad custom regexes, or unexpected runtime quirks degrade gracefully to `Unknown` results.
+
 ## [5.0.0](https://github-personal/malikrajat/device-detectione/compare/v4.0.0...v5.0.0) (2026-07-10)
 ### Added
 - Added `vitest` and `istanbul-lib-instrument` to support improved test tooling.
