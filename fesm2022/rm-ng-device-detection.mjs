@@ -5,6 +5,32 @@ import { isPlatformBrowser } from '@angular/common';
 const GENERAL = {
     UKNOWN: 'Unknown',
 };
+/**
+ * CRITICAL BUG FIX: Many of the legacy regex constants below were written as multi-line
+ * template literals for readability, e.g.:
+ *
+ *   multilineRegex(`Motorola|A1260|A1680|
+ *       A555|A853`)
+ *
+ * A plain `new RegExp()` call does NOT strip the newline + indentation whitespace from a
+ * template literal — that whitespace becomes a LITERAL, REQUIRED part of the pattern. The
+ * result is that every alternative after the first one on each source line silently required
+ * an actual `\n` + leading spaces to appear in the User-Agent string immediately before it —
+ * which never happens in a real (single-line) UA header. In practice this meant only the very
+ * first token on each physical source line ever had a working regex; everything else in a
+ * ~15-model-per-line list was silently dead code. This affected roughly 90% of the entries in
+ * every multi-line list (Samsung, Motorola, LG, most tablet brands, etc.).
+ *
+ * `multilineRegex()` fixes this by stripping line-break + indentation whitespace before
+ * compiling, while leaving intentional single spaces *within* a line untouched (so model names
+ * that legitimately contain a space, e.g. "Galaxy Tab", "Genius Tab G3", keep matching).
+ * It's also a small perf win: it pre-compiles once at module load instead of Claude's ReTree
+ * recompiling from a raw string on every single `.test()` call (which is what happened for the
+ * two constants below that were plain strings rather than RegExp objects).
+ */
+function multilineRegex(pattern, flags) {
+    return new RegExp(pattern.replace(/\r?\n\s*/g, ''), flags);
+}
 const BROWSERS = {
     CHROME: 'Chrome',
     FIREFOX: 'Firefox',
@@ -16,21 +42,31 @@ const BROWSERS = {
     FB_MESSANGER: 'FB-Messanger',
     SAMSUNG: 'Samsung',
     UCBROWSER: 'UC-Browser',
+    // --- modern browsers added ---
+    BRAVE: 'Brave',
+    VIVALDI: 'Vivaldi',
+    ARC: 'Arc',
+    DUCKDUCKGO: 'DuckDuckGo',
+    YANDEX: 'Yandex',
     UNKNOWN: GENERAL.UKNOWN,
 };
 const MOBILES_RE = {
     // tslint:disable-next-line:max-line-length
-    HTC: /HTC|HTC.*(Sensation|Evo|Vision|Explorer|6800|8100|8900|A7272|S510e|C110e|Legend|Desire|T8282)|APX515CKT|Qtek9090|APA9292KT|HD_mini|Sensation.*Z710e|PG86100|Z715e|Desire.*(A8181|HD)|ADR6200|ADR6400L|ADR6425|001HT|Inspire 4G|Android.*\bEVO\b|T-Mobile G1|Z520m|Android [0-9.]+; Pixel/,
+    // NOTE: the upstream/legacy version of this regex ended with `|Android [0-9.]+; Pixel/` — an
+    // alternative broad enough to match the UA of literally every modern Google Pixel phone
+    // (`Android 15; Pixel 9`, etc.), silently misclassifying the single most common flagship
+    // Android device as "HTC". Removed; Pixel phones are correctly matched by GOOGLE_PIXEL below.
+    HTC: /HTC|HTC.*(Sensation|Evo|Vision|Explorer|6800|8100|8900|A7272|S510e|C110e|Legend|Desire|T8282)|APX515CKT|Qtek9090|APA9292KT|HD_mini|Sensation.*Z710e|PG86100|Z715e|Desire.*(A8181|HD)|ADR6200|ADR6400L|ADR6425|001HT|Inspire 4G|Android.*\bEVO\b|T-Mobile G1|Z520m/,
     NEXUS_PHONE: /Nexus One|Nexus S|Galaxy.*Nexus|Android.*Nexus.*Mobile|Nexus 4|Nexus 5|Nexus 6/,
     DELL: /Dell[;]? (Streak|Aero|Venue|Venue Pro|Flash|Smoke|Mini 3iX)|XCD28|XCD35|\b001DL\b|\b101DL\b|\bGS01\b/,
-    MOTOROLA: new RegExp(`Motorola|DROIDX|DROID BIONIC|\\bDroid\\b.*Build|Android.*Xoom|HRI39|MOT-|A1260|A1680|A555|A853|
+    MOTOROLA: multilineRegex(`Motorola|DROIDX|DROID BIONIC|\\bDroid\\b.*Build|Android.*Xoom|HRI39|MOT-|A1260|A1680|A555|A853|
       A855|A953|A955|A956|Motorola.*ELECTRIFY|Motorola.*i1|i867|i940|MB200|MB300|MB501|MB502|MB508|MB511|
       MB520|MB525|MB526|MB611|MB612|MB632|MB810|MB855|MB860|MB861|MB865|MB870|ME501|ME502|ME511|ME525|ME600|
       ME632|ME722|ME811|ME860|ME863|ME865|MT620|MT710|MT716|MT720|MT810|MT870|MT917|Motorola.*TITANIUM|WX435|
       WX445|XT300|XT301|XT311|XT316|XT317|XT319|XT320|XT390|XT502|XT530|XT531|XT532|XT535|XT603|XT610|XT611|
       XT615|XT681|XT701|XT702|XT711|XT720|XT800|XT806|XT860|XT862|XT875|XT882|XT883|XT894|XT901|XT907|XT909|
       XT910|XT912|XT928|XT926|XT915|XT919|XT925|XT1021|\\bMoto E\\b|XT1068|XT1092|XT1052`),
-    SAMSUNG: new RegExp(`\\bSamsung\\b|SM-G950F|SM-G955F|SM-G9250|GT-19300|SGH-I337|BGT-S5230|GT-B2100|GT-B2700|GT-B2710|
+    SAMSUNG: multilineRegex(`\\bSamsung\\b|SM-G950F|SM-G955F|SM-G9250|GT-19300|SGH-I337|BGT-S5230|GT-B2100|GT-B2700|GT-B2710|
       GT-B3210|GT-B3310|GT-B3410|GT-B3730|GT-B3740|GT-B5510|GT-B5512|GT-B5722|GT-B6520|GT-B7300|GT-B7320|
       GT-B7330|GT-B7350|GT-B7510|GT-B7722|GT-B7800|GT-C3010|GT-C3011|GT-C3060|GT-C3200|GT-C3212|GT-C3212I|
       GT-C3262|GT-C3222|GT-C3300|GT-C3300K|GT-C3303|GT-C3303K|GT-C3310|GT-C3322|GT-C3330|GT-C3350|GT-C3500|
@@ -85,7 +121,7 @@ const MOBILES_RE = {
       SM-G900H|SM-G900I|SM-G900J|SM-G900K|SM-G900L|SM-G900M|SM-G900P|SM-G900R4|SM-G900S|SM-G900T|SM-G900V|
       SM-G900W8|SHV-E160K|SCH-P709|SCH-P729|SM-T2558|GT-I9205|SM-G9350|SM-J120F|SM-G920F|SM-G920V|SM-G930F|
       SM-N910C|SM-A310F|GT-I9190|SM-J500FN|SM-G903F|SM-J330F`),
-    LG: new RegExp(`\\bLG\\b;|LG[- ]?(C800|C900|E400|E610|E900|E-900|F160|F180K|F180L|F180S|730|855|L160|LS740|LS840|LS970|
+    LG: multilineRegex(`\\bLG\\b;|LG[- ]?(C800|C900|E400|E610|E900|E-900|F160|F180K|F180L|F180S|730|855|L160|LS740|LS840|LS970|
       LU6200|MS690|MS695|MS770|MS840|MS870|MS910|P500|P700|P705|VM696|AS680|AS695|AX840|C729|E970|GS505|272|
       C395|E739BK|E960|L55C|L75C|LS696|LS860|P769BK|P350|P500|P509|P870|UN272|US730|VS840|VS950|LN272|LN510|
       LS670|LS855|LW690|MN270|MN510|P509|P769|P930|UN200|UN270|UN510|UN610|US670|US740|US760|UX265|UX840|VN271|
@@ -97,13 +133,13 @@ const MOBILES_RE = {
     MICROMAX: /Micromax.*\b(A210|A92|A88|A72|A111|A110Q|A115|A116|A110|A90S|A26|A51|A35|A54|A25|A27|A89|A68|A65|A57|A90)\b/,
     PALM: /PalmSource|Palm/,
     VERTU: /Vertu|Vertu.*Ltd|Vertu.*Ascent|Vertu.*Ayxta|Vertu.*Constellation(F|Quest)?|Vertu.*Monika|Vertu.*Signature/,
-    PANTECH: new RegExp(`PANTECH|IM-A850S|IM-A840S|IM-A830L|IM-A830K|IM-A830S|IM-A820L|IM-A810K|IM-A810S|IM-A800S|IM-T100K|
+    PANTECH: multilineRegex(`PANTECH|IM-A850S|IM-A840S|IM-A830L|IM-A830K|IM-A830S|IM-A820L|IM-A810K|IM-A810S|IM-A800S|IM-T100K|
         IM-A725L|IM-A780L|IM-A775C|IM-A770K|IM-A760S|IM-A750K|IM-A740S|IM-A730S|IM-A720L|IM-A710K|IM-A690L|
         IM-A690S|IM-A650S|IM-A630K|IM-A600S|VEGA PTL21|PT003|P8010|ADR910L|P6030|P6020|P9070|P4100|P9060|P5000|
         CDM8992|TXT8045|ADR8995|IS11PT|P2030|P6010|P8000|PT002|IS06|CDM8999|P9050|PT001|TXT8040|P2020|P9020|
         P2000|P7040|P7000|C790`),
     FLY: /IQ230|IQ444|IQ450|IQ440|IQ442|IQ441|IQ245|IQ256|IQ236|IQ255|IQ235|IQ245|IQ275|IQ240|IQ285|IQ280|IQ270|IQ260|IQ250/,
-    WIKO: new RegExp(`KITE 4G|HIGHWAY|GETAWAY|STAIRWAY|DARKSIDE|DARKFULL|DARKNIGHT|DARKMOON|SLIDE|WAX 4G|RAINBOW|BLOOM|
+    WIKO: multilineRegex(`KITE 4G|HIGHWAY|GETAWAY|STAIRWAY|DARKSIDE|DARKFULL|DARKNIGHT|DARKMOON|SLIDE|WAX 4G|RAINBOW|BLOOM|
         SUNSET|GOA(?!nna)|LENNY|BARRY|IGGY|OZZY|CINK FIVE|CINK PEAX|CINK PEAX 2|CINK SLIM|CINK SLIM 2|CINK +|
         CINK KING|CINK PEAX|CINK SLIM|SUBLIM`),
     I_MOBILE: /i-mobile (IQ|i-STYLE|idea|ZAA|Hitz)/,
@@ -120,14 +156,35 @@ const MOBILES_RE = {
     iPod: /\biPod\b/,
     ANDROID: /\bAndroid\b/,
     WINDOWS_PHONE: /\bWindows-Phone\b/,
-    GENERIC_PHONE: new RegExp(`Tapatalk|PDA;|SAGEM|\\bmmp\\b|pocket|\\bpsp\\b|symbian|Smartphone|smartfon|treo|up.browser|
+    GENERIC_PHONE: multilineRegex(`Tapatalk|PDA;|SAGEM|\\bmmp\\b|pocket|\\bpsp\\b|symbian|Smartphone|smartfon|treo|up.browser|
         up.link|vodafone|\\bwap\\b|nokia|Nokia|Series40|Series60|S60|SonyEricsson|N900|MAUI.*WAP.*Browser`),
+    // --- modern brands (2018+) added so current-generation phones are recognised by name ---
+    GOOGLE_PIXEL: /\bPixel (2|3|3a|4|4a|5|6|6a|7|7a|8|8a|9|9a|10)( XL| Pro| Pro XL| Fold)?\b/,
+    ONEPLUS: /\bONEPLUS\b|\bIN20[0-9]{2}\b|\bLE[0-9]{4}\b|\bGM19[0-9]{2}\b|\bKB20[0-9]{2}\b|\bAC20[0-9]{2}\b|\bCPH2[0-9]{3}\b/i,
+    XIAOMI: /\bMI [0-9]+\b|Redmi|POCO|Xiaomi(?!.*Pad)/i,
+    HUAWEI_MODERN: /\bHUAWEI\b|\bHonor\b|\bMate ?[0-9]{2}\b|\bP[0-9]{2} ?(Pro|Lite)?\b(?=.*Android)|\bHarmonyOS\b/,
+    OPPO: /\bOPPO\b|\bCPH1[0-9]{3}\b|\bCPH2[0-9]{3}\b|\bFind X[0-9]?\b|\bReno ?[0-9]?\b/,
+    VIVO: /\bvivo\b|\bV[0-9]{4}\b(?=.*Android)/,
+    REALME: /\bRealme\b|\bRMX[0-9]{4}\b/,
+    NOTHING_PHONE: /\bNothing Phone\b|\bA0[0-9]{2}\b(?=.*Android)/,
+    // Generic Android phone fallback: any Android UA carrying the "Mobile" token that wasn't
+    // matched by one of the specific brand/model regexes above is still a phone. This is the
+    // single biggest fix for "new devices aren't detected" — the legacy list above only ever
+    // covers a finite, aging set of model numbers.
+    GENERIC_ANDROID_MOBILE: { and: [/\bAndroid\b/, /\bMobile\b/] },
+    // Best-effort: HarmonyOS NEXT browsers generally follow the same UA conventions as Android
+    // (WebKit-based, standard tokens), but Huawei's exact HarmonyOS UA format isn't as
+    // well-documented/stable as Android's — treat it as a phone unless "Tablet" appears, mirroring
+    // the Android heuristic below. Revisit if you see real-world HarmonyOS UAs that don't fit this.
+    GENERIC_HARMONYOS_MOBILE: { and: [/\bHarmonyOS\b/, { not: /\bTablet\b/ }] },
+    // Modern Windows Phone / mobile Windows (legacy, kept for completeness).
+    WINDOWS_MOBILE_MODERN: /\bWindows Phone 10\.0\b|\bWindows Mobile\b/,
 };
 const TABLETS_RE = {
     iPad: /iPad|iPad.*Mobile/,
     NexusTablet: /Android.*Nexus[\s]+(7|9|10)/,
     GoogleTablet: /Android.*Pixel C/,
-    SamsungTablet: new RegExp(`SAMSUNG.*Tablet|Galaxy.*Tab|SC-01C|GT-P1000|GT-P1003|GT-P1010|GT-P3105|GT-P6210|
+    SamsungTablet: multilineRegex(`SAMSUNG.*Tablet|Galaxy.*Tab|SC-01C|GT-P1000|GT-P1003|GT-P1010|GT-P3105|GT-P6210|
         GT-P6800|GT-P6810|GT-P7100|GT-P7300|GT-P7310|GT-P7500|GT-P7510|SCH-I800|SCH-I815|SCH-I905|
         SGH-I957|SGH-I987|SGH-T849|SGH-T859|SGH-T869|SPH-P100|GT-P3100|GT-P3108|GT-P3110|GT-P5100|
         GT-P5110|GT-P6200|GT-P7320|GT-P7511|GT-N8000|GT-P8510|SGH-I497|SPH-P500|SGH-T779|SCH-I705|
@@ -146,12 +203,12 @@ const TABLETS_RE = {
         SM-T113|SM-T335|SM-T715|SM-T560|SM-T670|SM-T677|SM-T377|SM-T567|SM-T357T|SM-T555|SM-T561|SM-T713|
         SM-T719|SM-T725|SM-T813|SM-T819|SM-T580|SM-T590|SM-T355Y?|SM-T280|SM-T817A|SM-T820|SM-W700|SM-P580|SM-T587|SM-P350|
         SM-P555M|SM-P355M|SM-T113NU|SM-T815Y|SM-T585|SM-T285|SM-T825|SM-W708|SM-T835|SM-P585Y|SM-X200|SM-T970`),
-    Kindle: new RegExp(`Kindle|Silk.*Accelerated|Android.*\\b(KFOT|KFTT|KFJWI|KFJWA|KFOTE|KFSOWI|KFTHWI|KFTHWA|KFAPWI|
+    Kindle: multilineRegex(`Kindle|Silk.*Accelerated|Android.*\\b(KFOT|KFTT|KFJWI|KFJWA|KFOTE|KFSOWI|KFTHWI|KFTHWA|KFAPWI|
         KFAPWA|WFJWAE|KFSAWA|KFSAWI|KFASWI|KFARWI|KFFOWI|KFGIWI|KFMEWI)\\b|Android.*Silk\/[0-9.]+ like Chrome\
         /[0-9.]+ (?!Mobile)`),
     SurfaceTablet: /Windows NT [0-9.]+; ARM;.*(Tablet|ARMBJS)/,
     HPTablet: /HP Slate (7|8|10)|HP ElitePad 900|hp-tablet|EliteBook.*Touch|HP 8|Slate 21|HP SlateBook 10/,
-    AsusTablet: new RegExp(`^.*PadFone((?!Mobile).)*$|Transformer|TF101|TF101G|TF300T|TF300TG|TF300TL|TF700T|TF700KL|
+    AsusTablet: multilineRegex(`^.*PadFone((?!Mobile).)*$|Transformer|TF101|TF101G|TF300T|TF300TG|TF300TL|TF700T|TF700KL|
         TF701T|TF810C|ME171|ME301T|ME302C|ME371MG|ME370T|ME372MG|ME172V|ME173X|ME400C|
         Slider SL101|\\bK00F\\b|\\bK00C\\b|\\bK00E\\b|\\bK00L\\b|TX201LA|ME176C|ME102A|\\bM80TA\\b|ME372CL|
         ME560CG|ME372CG|ME302KL| K010 | K011 | K017 | K01E |ME572C|ME103K|ME170C|ME171C|\\bME70C\\b|ME581C|
@@ -160,22 +217,22 @@ const TABLETS_RE = {
     HTCtablet: /HTC_Flyer_P512|HTC Flyer|HTC Jetstream|HTC-P715a|HTC EVO View 4G|PG41200|PG09410/,
     MotorolaTablet: /xoom|sholest|MZ615|MZ605|MZ505|MZ601|MZ602|MZ603|MZ604|MZ606|MZ607|MZ608|MZ609|MZ615|MZ616|MZ617/,
     NookTablet: /Android.*Nook|NookColor|nook browser|BNRV200|BNRV200A|BNTV250|BNTV250A|BNTV400|BNTV600|LogicPD Zoom2/,
-    AcerTablet: new RegExp(`Android.*; \\b(A100|A101|A110|A200|A210|A211|A500|A501|A510|A511|A700|A701|W500|W500P|W501|
+    AcerTablet: multilineRegex(`Android.*; \\b(A100|A101|A110|A200|A210|A211|A500|A501|A510|A511|A700|A701|W500|W500P|W501|
         W501P|W510|W511|W700|G100|G100W|B1-A71|B1-710|B1-711|A1-810|A1-811|A1-830)\\b|W3-810|\\bA3-A10\\b|\\bA3-A11\\b|
         \\bA3-A20\\b|\\bA3-A30`),
     ToshibaTablet: /Android.*(AT100|AT105|AT200|AT205|AT270|AT275|AT300|AT305|AT1S5|AT500|AT570|AT700|AT830)|TOSHIBA.*FOLIO/,
     LGTablet: /\bL-06C|LG-V909|LG-V900|LG-V700|LG-V510|LG-V500|LG-V410|LG-V400|LG-VK810\b/,
     FujitsuTablet: /Android.*\b(F-01D|F-02F|F-05E|F-10D|M532|Q572)\b/,
-    PrestigioTablet: new RegExp(`PMP3170B|PMP3270B|PMP3470B|PMP7170B|PMP3370B|PMP3570C|PMP5870C|PMP3670B|PMP5570C|
+    PrestigioTablet: multilineRegex(`PMP3170B|PMP3270B|PMP3470B|PMP7170B|PMP3370B|PMP3570C|PMP5870C|PMP3670B|PMP5570C|
         PMP5770D|PMP3970B|PMP3870C|PMP5580C|PMP5880D|PMP5780D|PMP5588C|PMP7280C|PMP7280C3G|PMP7280|PMP7880D|
         PMP5597D|PMP5597|PMP7100D|PER3464|PER3274|PER3574|PER3884|PER5274|PER5474|PMP5097CPRO|PMP5097|PMP7380D|
         PMP5297C|PMP5297C_QUAD|PMP812E|PMP812E3G|PMP812F|PMP810E|PMP880TD|PMT3017|PMT3037|PMT3047|PMT3057|PMT7008|
         PMT5887|PMT5001|PMT5002`),
-    LenovoTablet: new RegExp(`Lenovo TAB|Idea(Tab|Pad)( A1|A10| K1|)|ThinkPad([ ]+)?Tablet|YT3-850M|YT3-X90L|YT3-X90F|
+    LenovoTablet: multilineRegex(`Lenovo TAB|Idea(Tab|Pad)( A1|A10| K1|)|ThinkPad([ ]+)?Tablet|YT3-850M|YT3-X90L|YT3-X90F|
         YT3-X90X|Lenovo.*(S2109|S2110|S5000|S6000|K3011|A3000|A3500|A1000|A2107|A2109|A1107|A5500|A7600|B6000|
         B8000|B8080)(-|)(FL|F|HV|H|)|TB-X606F|TB-X103F|TB-X304F|TB-X304L|TB-X704F|TB-8703F|Tab2A7-10F|TB2-X30L|TB-8504F`),
     DellTablet: /Venue 11|Venue 8|Venue 7|Dell Streak 10|Dell Streak 7/,
-    YarvikTablet: new RegExp(`Android.*\\b(TAB210|TAB211|TAB224|TAB250|TAB260|TAB264|TAB310|TAB360|TAB364|TAB410|TAB411|
+    YarvikTablet: multilineRegex(`Android.*\\b(TAB210|TAB211|TAB224|TAB250|TAB260|TAB264|TAB310|TAB360|TAB364|TAB410|TAB411|
         TAB420|TAB424|TAB450|TAB460|TAB461|TAB464|TAB465|TAB467|TAB468|TAB07-100|TAB07-101|TAB07-150|TAB07-151|
         TAB07-152|TAB07-200|TAB07-201-3G|TAB07-210|TAB07-211|TAB07-212|TAB07-214|TAB07-220|TAB07-400|TAB07-485|
         TAB08-150|TAB08-200|TAB08-201-3G|TAB08-201-30|TAB09-100|TAB09-211|TAB09-410|TAB10-150|TAB10-201|TAB10-211|
@@ -187,29 +244,29 @@ const TABLETS_RE = {
     MegafonTablet: /MegaFon V9|\bZTE V9\b|Android.*\bMT7A\b/,
     EbodaTablet: /E-Boda (Supreme|Impresspeed|Izzycomm|Essential)/,
     AllViewTablet: /Allview.*(Viva|Alldro|City|Speed|All TV|Frenzy|Quasar|Shine|TX1|AX1|AX2)/,
-    ArchosTablet: new RegExp(`\\b(101G9|80G9|A101IT)\\b|Qilive 97R|Archos5|\\bARCHOS (70|79|80|90|97|101|FAMILYPAD|)(b|c|)(G10|
+    ArchosTablet: multilineRegex(`\\b(101G9|80G9|A101IT)\\b|Qilive 97R|Archos5|\\bARCHOS (70|79|80|90|97|101|FAMILYPAD|)(b|c|)(G10|
          Cobalt| TITANIUM(HD|)| Xenon| Neon|XSK| 2| XS 2| PLATINUM| CARBON|GAMEPAD)\\b`),
     AinolTablet: /NOVO7|NOVO8|NOVO10|Novo7Aurora|Novo7Basic|NOVO7PALADIN|novo9-Spark/,
     NokiaLumiaTablet: /Lumia 2520/,
-    SonyTablet: new RegExp(`Sony.*Tablet|Xperia Tablet|Sony Tablet S|SO-03E|SGPT12|SGPT13|SGPT114|SGPT121|SGPT122|SGPT123|
+    SonyTablet: multilineRegex(`Sony.*Tablet|Xperia Tablet|Sony Tablet S|SO-03E|SGPT12|SGPT13|SGPT114|SGPT121|SGPT122|SGPT123|
         SGPT111|SGPT112|SGPT113|SGPT131|SGPT132|SGPT133|SGPT211|SGPT212|SGPT213|SGP311|SGP312|SGP321|EBRD1101|
         EBRD1102|EBRD1201|SGP351|SGP341|SGP511|SGP512|SGP521|SGP541|SGP551|SGP621|SGP641|SGP612|SOT31|SGP771|SGP611|
         SGP612|SGP712`),
     PhilipsTablet: /\b(PI2010|PI3000|PI3100|PI3105|PI3110|PI3205|PI3210|PI3900|PI4010|PI7000|PI7100)\b/,
     CubeTablet: /Android.*(K8GT|U9GT|U10GT|U16GT|U17GT|U18GT|U19GT|U20GT|U23GT|U30GT)|CUBE U8GT/,
-    CobyTablet: new RegExp(`MID1042|MID1045|MID1125|MID1126|MID7012|MID7014|MID7015|MID7034|MID7035|MID7036|MID7042|MID7048|
+    CobyTablet: multilineRegex(`MID1042|MID1045|MID1125|MID1126|MID7012|MID7014|MID7015|MID7034|MID7035|MID7036|MID7042|MID7048|
         MID7127|MID8042|MID8048|MID8127|MID9042|MID9740|MID9742|MID7022|MID7010`),
-    MIDTablet: new RegExp(`M9701|M9000|M9100|M806|M1052|M806|T703|MID701|MID713|MID710|MID727|MID760|MID830|MID728|MID933|
+    MIDTablet: multilineRegex(`M9701|M9000|M9100|M806|M1052|M806|T703|MID701|MID713|MID710|MID727|MID760|MID830|MID728|MID933|
         MID125|MID810|MID732|MID120|MID930|MID800|MID731|MID900|MID100|MID820|MID735|MID980|MID130|MID833|MID737|
         MID960|MID135|MID860|MID736|MID140|MID930|MID835|MID733|MID4X10`),
-    MSITablet: new RegExp(`MSI \\b(Primo 73K|Primo 73L|Primo 81L|Primo 77|Primo 93|Primo 75|Primo 76|Primo 73|Primo 81|
+    MSITablet: multilineRegex(`MSI \\b(Primo 73K|Primo 73L|Primo 81L|Primo 77|Primo 93|Primo 75|Primo 76|Primo 73|Primo 81|
         Primo 91|Primo 90|Enjoy 71|Enjoy 7|Enjoy 10)\\b`),
     SMiTTablet: /Android.*(\bMID\b|MID-560|MTV-T1200|MTV-PND531|MTV-P1101|MTV-PND530)/,
     RockChipTablet: /Android.*(RK2818|RK2808A|RK2918|RK3066)|RK2738|RK2808A/,
     FlyTablet: /IQ310|Fly Vision/,
-    bqTablet: new RegExp(`Android.*(bq)?.*(Elcano|Curie|Edison|Maxwell|Kepler|Pascal|Tesla|Hypatia|Platon|Newton|
+    bqTablet: multilineRegex(`Android.*(bq)?.*(Elcano|Curie|Edison|Maxwell|Kepler|Pascal|Tesla|Hypatia|Platon|Newton|
         Livingstone|Cervantes|Avant|Aquaris ([E|M]10|M8))|Maxwell.*Lite|Maxwell.*Plus`),
-    HuaweiTablet: new RegExp(`MediaPad|MediaPad 7 Youth|MediaPad T3 10|IDEOS S7|S7-201c|S7-202u|S7-101|S7-103|S7-104|S7-105|S7-106|
+    HuaweiTablet: multilineRegex(`MediaPad|MediaPad 7 Youth|MediaPad T3 10|IDEOS S7|S7-201c|S7-202u|S7-101|S7-103|S7-104|S7-105|S7-106|
         S7-201|S7-Slim|M2-A01L|BAH-L09|BAH-W09|AGS-W09|AGS-L09`),
     NecTablet: /\bN-06D|\bN-08D/,
     PantechTablet: /Pantech.*P4100/,
@@ -220,7 +277,7 @@ const TABLETS_RE = {
     NabiTablet: /Android.*\bNabi/,
     KoboTablet: /Kobo Touch|\bK080\b|\bVox\b Build|\bArc\b Build/,
     DanewTablet: /DSlide.*\b(700|701R|702|703R|704|802|970|971|972|973|974|1010|1012)\b/,
-    TexetTablet: new RegExp(`NaviPad|TB-772A|TM-7045|TM-7055|TM-9750|TM-7016|TM-7024|TM-7026|TM-7041|TM-7043|TM-7047|
+    TexetTablet: multilineRegex(`NaviPad|TB-772A|TM-7045|TM-7055|TM-9750|TM-7016|TM-7024|TM-7026|TM-7041|TM-7043|TM-7047|
         TM-8041|TM-9741|TM-9747|TM-9748|TM-9751|TM-7022|TM-7021|TM-7020|TM-7011|TM-7010|TM-7023|TM-7025|
         TM-7037W|TM-7038W|TM-7027W|TM-9720|TM-9725|TM-9737W|TM-1020|TM-9738W|TM-9740|TM-9743W|TB-807A|TB-771A|
         TB-727A|TB-725A|TB-719A|TB-823A|TB-805A|TB-723A|TB-715A|TB-707A|TB-705A|TB-709A|TB-711A|TB-890HD|
@@ -230,29 +287,29 @@ const TABLETS_RE = {
     PlaystationTablet: /Playstation.*(Portable|Vita)/,
     TrekstorTablet: /ST10416-1|VT10416-1|ST70408-1|ST702xx-1|ST702xx-2|ST80208|ST97216|ST70104-2|VT10416-2|ST10216-2A|SurfTab/,
     PyleAudioTablet: /\b(PTBL10CEU|PTBL10C|PTBL72BC|PTBL72BCEU|PTBL7CEU|PTBL7C|PTBL92BC|PTBL92BCEU|PTBL9CEU|PTBL9CUK|PTBL9C)\b/,
-    AdvanTablet: new RegExp(`Android.* \\b(E3A|T3X|T5C|T5B|T3E|T3C|T3B|T1J|T1F|T2A|T1H|T1i|E1C|T1-E|T5-A|T4|E1-B|T2Ci|
+    AdvanTablet: multilineRegex(`Android.* \\b(E3A|T3X|T5C|T5B|T3E|T3C|T3B|T1J|T1F|T2A|T1H|T1i|E1C|T1-E|T5-A|T4|E1-B|T2Ci|
         T1-B|T1-D|O1-A|E1-A|T1-A|T3A|T4i)\\b`),
-    DanyTechTablet: `Genius Tab G3|Genius Tab S2|Genius Tab Q3|Genius Tab G4|Genius Tab Q4|Genius Tab G-II|
-        Genius TAB GII|Genius TAB GIII|Genius Tab S1`,
+    DanyTechTablet: multilineRegex(`Genius Tab G3|Genius Tab S2|Genius Tab Q3|Genius Tab G4|Genius Tab Q4|Genius Tab G-II|
+        Genius TAB GII|Genius TAB GIII|Genius Tab S1`),
     GalapadTablet: /Android.*\bG1\b(?!\))/,
     MicromaxTablet: /Funbook|Micromax.*\b(P250|P560|P360|P362|P600|P300|P350|P500|P275)\b/,
     KarbonnTablet: /Android.*\b(A39|A37|A34|ST8|ST10|ST7|Smart Tab3|Smart Tab2)\b/,
     AllFineTablet: /Fine7 Genius|Fine7 Shine|Fine7 Air|Fine8 Style|Fine9 More|Fine10 Joy|Fine11 Wide/,
-    PROSCANTablet: new RegExp(`\\b(PEM63|PLT1023G|PLT1041|PLT1044|PLT1044G|PLT1091|PLT4311|PLT4311PL|PLT4315|PLT7030|
+    PROSCANTablet: multilineRegex(`\\b(PEM63|PLT1023G|PLT1041|PLT1044|PLT1044G|PLT1091|PLT4311|PLT4311PL|PLT4315|PLT7030|
         PLT7033|PLT7033D|PLT7035|PLT7035D|PLT7044K|PLT7045K|PLT7045KB|PLT7071KG|PLT7072|PLT7223G|PLT7225G|
         PLT7777G|PLT7810K|PLT7849G|PLT7851G|PLT7852G|PLT8015|PLT8031|PLT8034|PLT8036|PLT8080K|PLT8082|PLT8088|
         PLT8223G|PLT8234G|PLT8235G|PLT8816K|PLT9011|PLT9045K|PLT9233G|PLT9735|PLT9760G|PLT9770G)\\b`),
     YONESTablet: /BQ1078|BC1003|BC1077|RK9702|BC9730|BC9001|IT9001|BC7008|BC7010|BC708|BC728|BC7012|BC7030|BC7027|BC7026/,
-    ChangJiaTablet: new RegExp(`TPC7102|TPC7103|TPC7105|TPC7106|TPC7107|TPC7201|TPC7203|TPC7205|TPC7210|TPC7708|TPC7709|
+    ChangJiaTablet: multilineRegex(`TPC7102|TPC7103|TPC7105|TPC7106|TPC7107|TPC7201|TPC7203|TPC7205|TPC7210|TPC7708|TPC7709|
         TPC7712|TPC7110|TPC8101|TPC8103|TPC8105|TPC8106|TPC8203|TPC8205|TPC8503|TPC9106|TPC9701|TPC97101|TPC97103|
         TPC97105|TPC97106|TPC97111|TPC97113|TPC97203|TPC97603|TPC97809|TPC97205|TPC10101|TPC10103|TPC10106|
         TPC10111|TPC10203|TPC10205|TPC10503`),
     GUTablet: /TX-A1301|TX-M9002|Q702|kf026/,
-    PointOfViewTablet: new RegExp(`TAB-P506|TAB-navi-7-3G-M|TAB-P517|TAB-P-527|TAB-P701|TAB-P703|TAB-P721|TAB-P731N|
+    PointOfViewTablet: multilineRegex(`TAB-P506|TAB-navi-7-3G-M|TAB-P517|TAB-P-527|TAB-P701|TAB-P703|TAB-P721|TAB-P731N|
         TAB-P741|TAB-P825|TAB-P905|TAB-P925|TAB-PR945|TAB-PL1015|TAB-P1025|TAB-PI1045|TAB-P1325|TAB-PROTAB[0-9]+|
         TAB-PROTAB25|TAB-PROTAB26|TAB-PROTAB27|TAB-PROTAB26XL|TAB-PROTAB2-IPS9|TAB-PROTAB30-IPS9|TAB-PROTAB25XXL|
         TAB-PROTAB26-IPS10|TAB-PROTAB30-IPS10`),
-    OvermaxTablet: new RegExp(`OV-(SteelCore|NewBase|Basecore|Baseone|Exellen|Quattor|EduTab|Solution|ACTION|BasicTab|TeddyTab|
+    OvermaxTablet: multilineRegex(`OV-(SteelCore|NewBase|Basecore|Baseone|Exellen|Quattor|EduTab|Solution|ACTION|BasicTab|TeddyTab|
         MagicTab|Stream|TB-08|TB-09)|Qualcore 1027`),
     HCLTablet: /HCL.*Tablet|Connect-3G-2.0|Connect-2G-2.0|ME Tablet U1|ME Tablet U2|ME Tablet G1|ME Tablet X1|ME Tablet Y2|ME Tablet Sync/,
     DPSTablet: /DPS Dream 9|DPS Dual 7/,
@@ -260,15 +317,15 @@ const TABLETS_RE = {
     CrestaTablet: /CTP(-)?810|CTP(-)?818|CTP(-)?828|CTP(-)?838|CTP(-)?888|CTP(-)?978|CTP(-)?980|CTP(-)?987|CTP(-)?988|CTP(-)?989/,
     MediatekTablet: /\bMT8125|MT8389|MT8135|MT8377\b/,
     ConcordeTablet: /Concorde([ ]+)?Tab|ConCorde ReadMan/,
-    GoCleverTablet: new RegExp(`GOCLEVER TAB|A7GOCLEVER|M1042|M7841|M742|R1042BK|R1041|TAB A975|TAB A7842|TAB A741|TAB A741L|TAB M723G|
+    GoCleverTablet: multilineRegex(`GOCLEVER TAB|A7GOCLEVER|M1042|M7841|M742|R1042BK|R1041|TAB A975|TAB A7842|TAB A741|TAB A741L|TAB M723G|
         TAB M721|TAB A1021|TAB I921|TAB R721|TAB I720|TAB T76|TAB R70|TAB R76.2|TAB R106|TAB R83.2|TAB M813G|TAB I721|
         GCTA722|TAB I70|TAB I71|TAB S73|TAB R73|TAB R74|TAB R93|TAB R75|TAB R76.1|TAB A73|TAB A93|TAB A93.2|TAB T72|
         TAB R83|TAB R974|TAB R973|TAB A101|TAB A103|TAB A104|TAB A104.2|R105BK|M713G|A972BK|TAB A971|TAB R974.2|
         TAB R104|TAB R83.3|TAB A1042`),
-    ModecomTablet: new RegExp(`FreeTAB 9000|FreeTAB 7.4|FreeTAB 7004|FreeTAB 7800|FreeTAB 2096|FreeTAB 7.5|FreeTAB 1014|
+    ModecomTablet: multilineRegex(`FreeTAB 9000|FreeTAB 7.4|FreeTAB 7004|FreeTAB 7800|FreeTAB 2096|FreeTAB 7.5|FreeTAB 1014|
         FreeTAB 1001 |FreeTAB 8001|FreeTAB 9706|FreeTAB 9702|FreeTAB 7003|FreeTAB 7002|FreeTAB 1002|FreeTAB 7801|
         FreeTAB 1331|FreeTAB 1004|FreeTAB 8002|FreeTAB 8014|FreeTAB 9704|FreeTAB 1003`),
-    VoninoTablet: new RegExp(`\\b(Argus[ _]?S|Diamond[ _]?79HD|Emerald[ _]?78E|Luna[ _]?70C|Onyx[ _]?S|Onyx[ _]?Z|
+    VoninoTablet: multilineRegex(`\\b(Argus[ _]?S|Diamond[ _]?79HD|Emerald[ _]?78E|Luna[ _]?70C|Onyx[ _]?S|Onyx[ _]?Z|
         Orin[ _]?HD|Orin[ _]?S|Otis[ _]?S|SpeedStar[ _]?S|Magnet[ _]?M9|Primus[ _]?94[ _]?3G|Primus[ _]?94HD|
         Primus[ _]?QS|Android.*\\bQ8\\b|Sirius[ _]?EVO[ _]?QS|Sirius[ _]?QS|Spirit[ _]?S)\\b`),
     ECSTablet: /V07OT2|TM105A|S10OT1|TR10CS1/,
@@ -282,16 +339,16 @@ const TABLETS_RE = {
     AMPETablet: /Android.* A78 /,
     SkkTablet: /Android.* (SKYPAD|PHOENIX|CYCLOPS)/,
     TecnoTablet: /TECNO P9|TECNO DP8D/,
-    JXDTablet: new RegExp(`Android.* \\b(F3000|A3300|JXD5000|JXD3000|JXD2000|JXD300B|JXD300|S5800|S7800|S602b|S5110b|S7300|
+    JXDTablet: multilineRegex(`Android.* \\b(F3000|A3300|JXD5000|JXD3000|JXD2000|JXD300B|JXD300|S5800|S7800|S602b|S5110b|S7300|
         S5300|S602|S603|S5100|S5110|S601|S7100a|P3000F|P3000s|P101|P200s|P1000m|P200m|P9100|P1000s|S6600b|S908|
         P1000|P300|S18|S6600|S9100)\\b`),
-    iJoyTablet: new RegExp(`Tablet (Spirit 7|Essentia|Galatea|Fusion|Onix 7|Landa|Titan|Scooby|Deox|Stella|Themis|Argon|
+    iJoyTablet: multilineRegex(`Tablet (Spirit 7|Essentia|Galatea|Fusion|Onix 7|Landa|Titan|Scooby|Deox|Stella|Themis|Argon|
         Unique 7|Sygnus|Hexen|Finity 7|Cream|Cream X2|Jade|Neon 7|Neron 7|Kandy|Scape|Saphyr 7|Rebel|Biox|Rebel|
         Rebel 8GB|Myst|Draco 7|Myst|Tab7-004|Myst|Tadeo Jones|Tablet Boing|Arrow|Draco Dual Cam|Aurix|Mint|Amity|
         Revolution|Finity 9|Neon 9|T9w|Amity 4GB Dual Cam|Stone 4GB|Stone 8GB|Andromeda|Silken|X2|Andromeda II|
         Halley|Flame|Saphyr 9,7|Touch 8|Planet|Triton|Unique 10|Hexen 10|Memphis 4GB|Memphis 8GB|Onix 10)`),
     FX2Tablet: /FX2 PAD7|FX2 PAD10/,
-    XoroTablet: new RegExp(`KidsPAD 701|PAD[ ]?712|PAD[ ]?714|PAD[ ]?716|PAD[ ]?717|PAD[ ]?718|PAD[ ]?720|PAD[ ]?721|
+    XoroTablet: multilineRegex(`KidsPAD 701|PAD[ ]?712|PAD[ ]?714|PAD[ ]?716|PAD[ ]?717|PAD[ ]?718|PAD[ ]?720|PAD[ ]?721|
         PAD[ ]?722|PAD[ ]?790|PAD[ ]?792|PAD[ ]?900|PAD[ ]?9715D|PAD[ ]?9716DR|PAD[ ]?9718DR|PAD[ ]?9719QR|
         PAD[ ]?9720QR|TelePAD1030|Telepad1032|TelePAD730|TelePAD731|TelePAD732|TelePAD735Q|TelePAD830|TelePAD9730|
         TelePAD795|MegaPAD 1331|MegaPAD 1851|MegaPAD 2151`),
@@ -299,9 +356,9 @@ const TABLETS_RE = {
     VerizonTablet: /QTAQZ3|QTAIR7|QTAQTZ3|QTASUN1|QTASUN2|QTAXIA1/,
     OdysTablet: /LOOX|XENO10|ODYS[ -](Space|EVO|Xpress|NOON)|\bXELIO\b|Xelio10Pro|XELIO7PHONETAB|XELIO10EXTREME|XELIOPT2|NEO_QUAD10/,
     CaptivaTablet: /CAPTIVA PAD/,
-    IconbitTablet: new RegExp(`NetTAB|NT-3702|NT-3702S|NT-3702S|NT-3603P|NT-3603P|NT-0704S|NT-0704S|NT-3805C|NT-3805C|
+    IconbitTablet: multilineRegex(`NetTAB|NT-3702|NT-3702S|NT-3702S|NT-3603P|NT-3603P|NT-0704S|NT-0704S|NT-3805C|NT-3805C|
         NT-0806C|NT-0806C|NT-0909T|NT-0909T|NT-0907S|NT-0907S|NT-0902S|NT-0902S`),
-    TeclastTablet: new RegExp(`T98 4G|\\bP80\\b|\\bX90HD\\b|X98 Air|X98 Air 3G|\\bX89\\b|P80 3G|\\bX80h\\b|P98 Air|
+    TeclastTablet: multilineRegex(`T98 4G|\\bP80\\b|\\bX90HD\\b|X98 Air|X98 Air 3G|\\bX89\\b|P80 3G|\\bX80h\\b|P98 Air|
         \\bX89HD\\b|P98 3G|\\bP90HD\\b|P89 3G|X98 3G|\\bP70h\\b|P79HD 3G|G18d 3G|\\bP79HD\\b|\\bP89s\\b|\\bA88\\b|
         \\bP10HD\\b|\\bP19HD\\b|G18 3G|\\bP78HD\\b|\\bA78\\b|\\bP75\\b|G17s 3G|G17h 3G|\\bP85t\\b|\\bP90\\b|
         \\bP11\\b|\\bP98t\\b|\\bP98HD\\b|\\bG18d\\b|\\bP85s\\b|\\bP11HD\\b|\\bP88s\\b|\\bA80HD\\b|\\bA80se\\b|
@@ -310,7 +367,7 @@ const TABLETS_RE = {
         \\bA10t\\b|\\bP76a\\b|\\bP76t\\b|\\bP76e\\b|\\bP85HD\\b|\\bP85a\\b|\\bP86\\b|\\bP75HD\\b|\\bP76v\\b|\\bA12\\b|
         \\bP75a\\b|\\bA15\\b|\\bP76Ti\\b|\\bP81HD\\b|\\bA10\\b|\\bT760VE\\b|\\bT720HD\\b|\\bP76\\b|\\bP73\\b|\\bP71\\b|
         \\bP72\\b|\\bT720SE\\b|\\bC520Ti\\b|\\bT760\\b|\\bT720VE\\b|T720-3GE|T720-WiFi`),
-    OndaTablet: new RegExp(`\\b(V975i|Vi30|VX530|V701|Vi60|V701s|Vi50|V801s|V719|Vx610w|VX610W|V819i|Vi10|VX580W|Vi10|
+    OndaTablet: multilineRegex(`\\b(V975i|Vi30|VX530|V701|Vi60|V701s|Vi50|V801s|V719|Vx610w|VX610W|V819i|Vi10|VX580W|Vi10|
         V711s|V813|V811|V820w|V820|Vi20|V711|VI30W|V712|V891w|V972|V819w|V820w|Vi60|V820w|V711|V813s|V801|V819|
         V975s|V801|V819|V819|V818|V811|V712|V975m|V101w|V961w|V812|V818|V971|V971s|V919|V989|V116w|V102w|V973|
         Vi40)\\b[\s]+|V10 \\b4G\\b`),
@@ -320,18 +377,18 @@ const TABLETS_RE = {
     EvolioTablet: /ARIA_Mini_wifi|Aria[ _]Mini|Evolio X10|Evolio X7|Evolio X8|\bEvotab\b|\bNeura\b/,
     LavaTablet: /QPAD E704|\bIvoryS\b|E-TAB IVORY|\bE-TAB\b/,
     AocTablet: /MW0811|MW0812|MW0922|MTK8382|MW1031|MW0831|MW0821|MW0931|MW0712/,
-    MpmanTablet: new RegExp(`MP11 OCTA|MP10 OCTA|MPQC1114|MPQC1004|MPQC994|MPQC974|MPQC973|MPQC804|MPQC784|MPQC780|
+    MpmanTablet: multilineRegex(`MP11 OCTA|MP10 OCTA|MPQC1114|MPQC1004|MPQC994|MPQC974|MPQC973|MPQC804|MPQC784|MPQC780|
         \\bMPG7\\b|MPDCG75|MPDCG71|MPDC1006|MP101DC|MPDC9000|MPDC905|MPDC706HD|MPDC706|MPDC705|MPDC110|
         MPDC100|MPDC99|MPDC97|MPDC88|MPDC8|MPDC77|MP709|MID701|MID711|MID170|MPDC703|MPQC1010`),
     CelkonTablet: /CT695|CT888|CT[\s]?910|CT7 Tab|CT9 Tab|CT3 Tab|CT2 Tab|CT1 Tab|C820|C720|\bCT-1\b/,
-    WolderTablet: new RegExp(`miTab \\b(DIAMOND|SPACE|BROOKLYN|NEO|FLY|MANHATTAN|FUNK|EVOLUTION|SKY|GOCAR|IRON|GENIUS|
+    WolderTablet: multilineRegex(`miTab \\b(DIAMOND|SPACE|BROOKLYN|NEO|FLY|MANHATTAN|FUNK|EVOLUTION|SKY|GOCAR|IRON|GENIUS|
         POP|MINT|EPSILON|BROADWAY|JUMP|HOP|LEGEND|NEW AGE|LINE|ADVANCE|FEEL|FOLLOW|LIKE|LINK|LIVE|THINK|
         FREEDOM|CHICAGO|CLEVELAND|BALTIMORE-GH|IOWA|BOSTON|SEATTLE|PHOENIX|DALLAS|IN 101|MasterChef)\\b`),
-    MediacomTablet: 'M-MPI10C3G|M-SP10EG|M-SP10EGP|M-SP10HXAH|M-SP7HXAH|M-SP10HXBH|M-SP8HXAH|M-SP8MXA',
+    MediacomTablet: /M-MPI10C3G|M-SP10EG|M-SP10EGP|M-SP10HXAH|M-SP7HXAH|M-SP10HXBH|M-SP8HXAH|M-SP8MXA/,
     MiTablet: /\bMI PAD\b|\bHM NOTE 1W\b/,
     NibiruTablet: /Nibiru M1|Nibiru Jupiter One/,
     NexoTablet: /NEXO NOVA|NEXO 10|NEXO AVIO|NEXO FREE|NEXO GO|NEXO EVO|NEXO 3G|NEXO SMART|NEXO KIDDO|NEXO MOBI/,
-    LeaderTablet: new RegExp(`TBLT10Q|TBLT10I|TBL-10WDKB|TBL-10WDKBO2013|TBL-W230V2|TBL-W450|TBL-W500|SV572|TBLT7I|
+    LeaderTablet: multilineRegex(`TBLT10Q|TBLT10I|TBL-10WDKB|TBL-10WDKBO2013|TBL-W230V2|TBL-W450|TBL-W500|SV572|TBLT7I|
         TBA-AC7-8G|TBLT79|TBL-8W16|TBL-10W32|TBL-10WKB|TBL-W100`),
     UbislateTablet: /UbiSlate[\s]?7C/,
     PocketBookTablet: /Pocketbook/,
@@ -340,9 +397,19 @@ const TABLETS_RE = {
     Hudl: /Hudl HT7S3|Hudl 2/,
     TelstraTablet: /T-Hub2/,
     Honeywell: /RT10A/,
-    GenericTablet: new RegExp(`Android.*\\b97D\\b|Tablet(?!.*PC)|BNTV250A|MID-WCDMA|LogicPD Zoom2|\\bA7EB\\b|CatNova8|
+    GenericTablet: multilineRegex(`Android.*\\b97D\\b|Tablet(?!.*PC)|BNTV250A|MID-WCDMA|LogicPD Zoom2|\\bA7EB\\b|CatNova8|
         A1_07|CT704|CT1002|\\bM721\\b|rk30sdk|\\bEVOTAB\\b|M758A|ET904|ALUMIUM10|Smartfren Tab|Endeavour 1010|
         Tablet-PC-4|Tagi Tab|\\bM6pro\\b|CT1020W|arc 10HD|\\bTP750\\b|\\bQTAQZ3\\b|WVT101|TM1088|KT107`),
+    // --- modern tablets (2018+) added ---
+    SurfaceModern: /\bSurface Pro\b|\bSurface Go\b|\bSurface Duo\b|\bSurface Book\b/,
+    SamsungTabModern: /\bSM-X[0-9]{3}\b|\bSM-T[0-9]{3}[A-Z]?\b|Galaxy Tab S[0-9]/,
+    LenovoTabModern: /\bLenovo TB-[A-Z0-9]+\b/,
+    AmazonFireModern: /\bKF[A-Z]{2,5}\b|Silk-Accelerated/,
+    // Generic Android tablet fallback: any Android UA WITHOUT the "Mobile" token is, by Android's
+    // own UA convention, a tablet/larger-form-factor device. Covers any current or future Android
+    // tablet that isn't in the (necessarily incomplete) brand list above.
+    GENERIC_ANDROID_TABLET: { and: [/\bAndroid\b/, { not: /\bMobile\b/ }] },
+    GENERIC_HARMONYOS_TABLET: { and: [/\bHarmonyOS\b/, /\bTablet\b/] },
 };
 const DEVICES = {
     BLACKBERRY: 'Blackberry',
@@ -387,6 +454,26 @@ const DEVICES = {
     INQ: 'INQ',
     GENERIC_PHONE: 'Generic Phone',
     MI_SE_9: 'Mi SE 9',
+    // --- modern devices added ---
+    GOOGLE_PIXEL: 'Google Pixel',
+    ONEPLUS: 'OnePlus',
+    XIAOMI: 'Xiaomi',
+    HUAWEI_MODERN: 'Huawei',
+    OPPO: 'Oppo',
+    VIVO: 'Vivo',
+    REALME: 'Realme',
+    NOTHING_PHONE: 'Nothing Phone',
+    GENERIC_ANDROID_MOBILE: 'Android Phone',
+    WINDOWS_MOBILE_MODERN: 'Windows Mobile',
+    SurfaceModern: 'Surface Tablet',
+    SamsungTabModern: 'Samsung Tablet',
+    LenovoTabModern: 'Lenovo Tablet',
+    AmazonFireModern: 'Amazon Fire Tablet',
+    GENERIC_ANDROID_TABLET: 'Android Tablet',
+    WINDOWS: 'Windows PC',
+    LINUX_DESKTOP: 'Linux PC',
+    STEAM_DECK: 'Steam Deck',
+    SURFACE_LAPTOP: 'Surface',
 };
 const DESKTOP_DEVICES = [
     DEVICES.PS4,
@@ -394,12 +481,21 @@ const DESKTOP_DEVICES = [
     DEVICES.MAC,
     DEVICES.DELL,
     DEVICES.ASUS,
+    // --- modern additions: these are the actual desktop identifiers that were previously
+    // missing entirely, which is the root cause of "desktop OS shows as Unknown/incorrect" ---
+    DEVICES.WINDOWS,
+    DEVICES.LINUX_DESKTOP,
+    DEVICES.SURFACE_LAPTOP,
     DEVICES.UNKNOWN,
 ];
 const OS = {
     WINDOWS: 'Windows',
     MAC: 'Mac',
     IOS: 'iOS',
+    // HarmonyOS NEXT (2024+) dropped AOSP compatibility and identifies itself explicitly; must be
+    // checked before ANDROID below since older HarmonyOS (AOSP-based) devices' UA also contains
+    // "Android" for web-compat, and we want the more specific match to win.
+    HARMONY_OS: 'HarmonyOS',
     ANDROID: 'Android',
     LINUX: 'Linux',
     UNIX: 'Unix',
@@ -445,6 +541,15 @@ const OS_VERSIONS = {
     MACOSX: 'mac-os-x',
     iOS: 'iOS',
     ANDROID_9: 'android-9',
+    ANDROID_10: 'android-10',
+    ANDROID_11: 'android-11',
+    ANDROID_12: 'android-12',
+    ANDROID_13: 'android-13',
+    ANDROID_14: 'android-14',
+    ANDROID_15: 'android-15',
+    ANDROID_16: 'android-16',
+    WINDOWS_10_OR_11: 'windows-10-or-11',
+    WINDOWS_11: 'windows-11',
     UNKNOWN: GENERAL.UKNOWN.toLowerCase(),
 };
 const OS_RE = {
@@ -457,6 +562,11 @@ const OS_RE = {
     IOS: {
         and: [{ or: [/\biPad\b/, /\biPhone\b/, /\biPod\b/] }, { not: /\bWindows Phone\b/ }],
     },
+    // HarmonyOS NEXT identifies itself explicitly. Older (AOSP-based) HarmonyOS devices generally
+    // do NOT add a distinguishing token and will correctly fall through to ANDROID below — there is
+    // no reliable way to tell those apart from a real Android device, which is a Huawei design choice,
+    // not a detection gap.
+    HARMONY_OS: { or: [/\bHarmonyOS\b/, /\bOpenHarmony\b/] },
     ANDROID: { and: [/\bAndroid\b/, { not: /\bWindows Phone\b/ }] },
     LINUX: /\bLinux\b/,
     UNIX: /\bUNIX\b/,
@@ -472,7 +582,16 @@ const BROWSERS_RE = {
             { or: [/\bChrome\b/, /\bCriOS\b/, /\bHeadlessChrome\b/] },
             {
                 not: {
-                    or: [/\bOPR\b/, /\bEdg(e|A|iOS)\b/, /\bEdg\/\b/, /\bSamsungBrowser\b/, /\bUCBrowser\b/],
+                    or: [
+                        /\bOPR\b/,
+                        /\bEdg(e|A|iOS)\b/,
+                        /\bEdg\/\b/,
+                        /\bSamsungBrowser\b/,
+                        /\bUCBrowser\b/,
+                        /\bVivaldi\/\b/,
+                        /\bYaBrowser\/\b/,
+                        /\bDuckDuckGo\/\b/,
+                    ],
                 },
             },
         ],
@@ -480,10 +599,20 @@ const BROWSERS_RE = {
     FIREFOX: { or: [/\bFirefox\b/, /\bFxiOS\b/] },
     SAFARI: {
         and: [
-            /^((?!CriOS).)*\Safari\b.*$/,
+            /^((?!CriOS).)*Safari\b.*$/,
             {
                 not: {
-                    or: [/\bOPR\b/, /\bEdg(e|A|iOS)\b/, /\bEdg\/\b/, /\bWindows Phone\b/, /\bSamsungBrowser\b/, /\bUCBrowser\b/],
+                    or: [
+                        /\bOPR\b/,
+                        /\bEdg(e|A|iOS)\b/,
+                        /\bEdg\/\b/,
+                        /\bWindows Phone\b/,
+                        /\bSamsungBrowser\b/,
+                        /\bUCBrowser\b/,
+                        /\bVivaldi\/\b/,
+                        /\bYaBrowser\/\b/,
+                        /\bDuckDuckGo\/\b/,
+                    ],
                 },
             },
         ],
@@ -499,6 +628,17 @@ const BROWSERS_RE = {
     FB_MESSANGER: /\bFBAN\/MessengerForiOS\b/,
     SAMSUNG: /\bSamsungBrowser\b/,
     UCBROWSER: /\bUCBrowser\b/,
+    // --- modern browsers added ---
+    // Vivaldi and Yandex both add their own token to the UA string, so they're reliably detectable.
+    VIVALDI: /\bVivaldi\/\b/,
+    YANDEX: /\bYaBrowser\/\b/,
+    // DuckDuckGo's mobile browsers add a token; the desktop app does not modify the UA at all.
+    DUCKDUCKGO: /\bDuckDuckGo\/\b/,
+    // NOTE: Brave and Arc are Chromium-based and deliberately do NOT alter the UA string (Brave
+    // in particular treats a distinct UA as a fingerprinting vector), so they cannot be detected
+    // this way — they will report as `Chrome`. Detecting them requires runtime feature checks
+    // (e.g. `(navigator as any).brave?.isBrave()` for Brave), which this library exposes as the
+    // opt-in async `isBraveViaFeatureDetection()` method on the service.
 };
 const DEVICES_RE = {
     ...MOBILES_RE,
@@ -507,6 +647,8 @@ const DEVICES_RE = {
     FIREFOX_OS: { and: [/\bFirefox\b/, /\bMobile\b/] },
     CHROME_BOOK: /\bCrOS\b/,
     PS4: /\bMozilla\/5.0 \(PlayStation 4\b/,
+    PS5: /\bMozilla\/5.0 \(PlayStation 5\b/,
+    XBOX: /\bXbox\b/,
     CHROMECAST: /\bCrKey\b/,
     APPLE_TV: /^iTunes-AppleTV\/4.1$/,
     GOOGLE_TV: /\bGoogleTV\b/,
@@ -515,6 +657,12 @@ const DEVICES_RE = {
     MAC: {
         and: [/\bMac OS\b/, { not: { or: [/\biPhone\b/, /\biPad\b/, /\biPod\b/, /\bWindows Phone\b/] } }],
     },
+    // --- modern desktop-class devices added ---
+    STEAM_DECK: { and: [/\bLinux\b/, { or: [/\bValve\b/, /SteamOS/] }] },
+    SURFACE_LAPTOP: { and: [/\bWindows\b/, { or: [/Surface\b/] }] },
+    // Plain desktop Linux (no distro name in the UA, which is the common case for
+    // Chrome/Edge on Linux — most modern browsers strip distro identifiers).
+    LINUX_DESKTOP: { and: [/\bLinux\b/, { not: { or: [/\bAndroid\b/, /\bCrOS\b/, /SteamOS/] } }] },
 };
 const OS_VERSIONS_RE_MAP = {
     WINDOWS_3_11: /Win16/,
@@ -556,6 +704,21 @@ const OS_VERSIONS_RE_MAP = {
     },
     iOS: /(iPhone OS\s*[0-9_]+)/,
     ANDROID_9: /(Android 9)/,
+    // --- modern Android versions added (10 through 16) ---
+    ANDROID_10: /(Android 10)/,
+    ANDROID_11: /(Android 11)/,
+    ANDROID_12: /(Android 12)/,
+    ANDROID_13: /(Android 13)/,
+    ANDROID_14: /(Android 14)/,
+    ANDROID_15: /(Android 15)/,
+    ANDROID_16: /(Android 16)/,
+    // NOTE ON WINDOWS 11: Chromium/Firefox/Safari all "freeze" the UA string's platform token at
+    // `Windows NT 10.0` for Windows 10 *and* 11 (and even 12+ going forward) as a privacy/anti-fingerprinting
+    // measure. There is no reliable way to tell Windows 10 and 11 apart from the UA string alone —
+    // this is a browser-level limitation, not a library bug. Accurate detection requires the async
+    // User-Agent Client Hints API (see `detectWindows11ViaClientHints()` in the service), which this
+    // library now exposes as an opt-in method.
+    WINDOWS_10_OR_11: /(Windows NT 10\.0)/,
 };
 const BROWSER_VERSIONS_RE_MAP = {
     CHROME: [/\bChrome\/([\d\.]+)\b/, /\bCriOS\/([\d\.]+)\b/, /\bHeadlessChrome\/([\d\.]+)\b/],
@@ -567,34 +730,99 @@ const BROWSER_VERSIONS_RE_MAP = {
     MS_EDGE_CHROMIUM: /\bEdg\/([\d\.]+)\b/,
     SAMSUNG: /\bSamsungBrowser\/([\d\.]+)\b/,
     UCBROWSER: /\bUCBrowser\/([\d\.]+)\b/,
+    VIVALDI: /\bVivaldi\/([\d\.]+)\b/,
+    YANDEX: /\bYaBrowser\/([\d\.]+)\b/,
+    DUCKDUCKGO: /\bDuckDuckGo\/([\d\.]+)\b/,
+};
+// Most Chromium-based browsers report only a generic "X11; Linux x86_64" for every distro —
+// there is no UA-level way to tell Ubuntu from Fedora from Arch on Chrome/Edge/Brave/etc.
+// Firefox (and some distro-patched browser packages) still include the distro name, so this
+// map is best-effort: it will correctly label Firefox-on-Ubuntu/Fedora/Mint/etc, and will
+// simply fall back to the generic `Linux` OS value everywhere else — which is the correct,
+// honest behavior rather than guessing.
+const LINUX_DISTROS_RE = {
+    UBUNTU: /\bUbuntu\b/,
+    FEDORA: /\bFedora\b/,
+    LINUX_MINT: /\bLinux Mint\b/,
+    DEBIAN: /\bDebian\b/,
+    MANJARO: /\bManjaro\b/,
+    ARCH_LINUX: /\bArch Linux\b/,
+    POP_OS: /\bPop!_OS\b/,
+    ELEMENTARY_OS: /\belementary OS\b/,
+    ZORIN_OS: /\bZorin\b/,
+    OPENSUSE: /\bopenSUSE\b/,
+    DEEPIN: /\bdeepin\b/,
+    KALI: /\bKali\b/,
+    RASPBIAN: /\bRaspbian\b/,
+    // --- Chinese distros added (best-effort — same Firefox-only caveat as above; Chromium-based
+    // browsers, including the ones shipped by default on these distros, generally strip this) ---
+    UOS: /\bUOS\b|\bUnionTech\b/, // UnionTech OS (统信UOS), Deepin-derived
+    KYLIN: /\bKylin\b|\bUbuntu ?Kylin\b/, // Kylin / Ubuntu Kylin (银河麒麟 / 优麒麟)
+    OPENEULER: /\bopenEuler\b/, // openEuler (openEuler / 欧拉)
+    REDFLAG: /\bRed ?Flag\b/, // Red Flag Linux (红旗Linux) — largely discontinued, kept for legacy UAs
 };
 const OS_VERSIONS_RE = Object.keys(OS_VERSIONS_RE_MAP).reduce((obj, key) => {
     obj[key] = OS_VERSIONS_RE_MAP[key];
     return obj;
 }, {});
+// Groups OS_VERSIONS_RE_MAP keys by the OS family they apply to. The service uses this to test
+// only the ~5-10 regexes relevant to the already-detected OS instead of all ~45 of them — faster,
+// and immune to a pathological UA that happens to contain a substring belonging to a different
+// OS's version regex. Adding a new OS version is just: add the regex to OS_VERSIONS_RE_MAP, add
+// the label to OS_VERSIONS, then list the key here. Nothing else needs to change.
+const OS_VERSION_GROUPS = {
+    [OS.WINDOWS]: [
+        'WINDOWS_3_11', 'WINDOWS_95', 'WINDOWS_ME', 'WINDOWS_98', 'WINDOWS_CE', 'WINDOWS_2000',
+        'WINDOWS_XP', 'WINDOWS_SERVER_2003', 'WINDOWS_VISTA', 'WINDOWS_7', 'WINDOWS_8_1', 'WINDOWS_8',
+        'WINDOWS_10', 'WINDOWS_NT_4_0', 'WINDOWS_10_OR_11',
+    ],
+    [OS.MAC]: [
+        'MACOSX_3', 'MACOSX_4', 'MACOSX_5', 'MACOSX_6', 'MACOSX_7', 'MACOSX_8', 'MACOSX_9',
+        'MACOSX_10', 'MACOSX_11', 'MACOSX_12', 'MACOSX_13', 'MACOSX_14', 'MACOSX_15', 'MACOSX_16',
+        'MACOSX_11_0', 'MACOSX',
+    ],
+    [OS.IOS]: ['iOS'],
+    [OS.ANDROID]: [
+        'ANDROID_9', 'ANDROID_10', 'ANDROID_11', 'ANDROID_12', 'ANDROID_13', 'ANDROID_14',
+        'ANDROID_15', 'ANDROID_16',
+    ],
+    [OS.WINDOWS_PHONE]: ['WINDOWS_PHONE_7_5', 'WINDOWS_PHONE_8_1', 'WINDOWS_PHONE_10'],
+};
+// Common crawlers/bots/HTTP clients. Without this, a bot UA (which matches none of the human
+// device/browser regexes) silently falls through to `deviceType: 'desktop'`, which is wrong and
+// a common source of skewed analytics. `isBot` is exposed on DeviceInfo instead.
+const BOTS_RE = new RegExp([
+    'Googlebot', 'bingbot', 'Slurp', 'DuckDuckBot', 'Baiduspider', 'YandexBot',
+    'facebookexternalhit', 'Twitterbot', 'LinkedInBot', 'WhatsApp', 'TelegramBot', 'Applebot',
+    'AhrefsBot', 'SemrushBot', 'MJ12bot', 'PetalBot', 'python-requests', '\\bcurl\\b',
+    'PostmanRuntime', 'node-fetch', 'axios\\/', 'HeadlessChrome', '\\bcrawler\\b', '\\bspider\\b',
+].join('|'), 'i');
+// Legacy 2009-2015-era feature-phone/tablet brand keys that are extremely unlikely to appear in
+// any modern traffic. Skipping these in "lightweight mode" (see service `basicMode` option) cuts
+// the number of regexes tested per request by roughly half with no effect on real-world accuracy.
+const HEAVY_LEGACY_MOBILE_KEYS = [
+    'DELL', 'PANTECH', 'FLY', 'WIKO', 'I_MOBILE', 'SIMVALLEY', 'WOLFGANG', 'AMOI', 'INQ', 'VITA',
+    'VERTU', 'PALM',
+];
+const HEAVY_LEGACY_TABLET_KEYS = [
+    'HPTablet', 'AsusTablet', 'BlackBerryTablet', 'HTCtablet', 'MotorolaTablet', 'NookTablet',
+    'AcerTablet', 'ToshibaTablet', 'LGTablet', 'FujitsuTablet', 'PrestigioTablet', 'LenovoTablet',
+    'DellTablet', 'YarvikTablet', 'MedionTablet', 'ArnovaTablet', 'IntensoTablet', 'IRUTablet',
+    'MegafonTablet', 'EbodaTablet', 'AllViewTablet', 'ArchosTablet', 'AinolTablet', 'NokiaLumiaTablet',
+    'SonyTablet', 'PhilipsTablet', 'CubeTablet', 'CobyTablet', 'MIDTablet', 'MSITablet', 'SMiTTablet',
+    'RockChipTablet', 'FlyTablet', 'bqTablet', 'HuaweiTablet', 'NecTablet', 'PantechTablet',
+    'BronchoTablet', 'VersusTablet', 'ZyncTablet', 'PositivoTablet', 'NabiTablet', 'KoboTablet',
+    'DanewTablet', 'TexetTablet', 'PlaystationTablet', 'TrekstorTablet', 'PyleAudioTablet',
+    'AdvanTablet', 'DanyTechTablet', 'GalapadTablet', 'MicromaxTablet', 'KarbonnTablet',
+    'AllFineTablet', 'PROSCANTablet', 'YONESTablet', 'ChangJiaTablet', 'GUTablet',
+    'PointOfViewTablet', 'OvermaxTablet', 'HCLTablet', 'DPSTablet', 'AocTablet', 'MpmanTablet',
+    'CelkonTablet', 'WolderTablet', 'MediacomTablet', 'NibiruTablet', 'NexoTablet', 'LeaderTablet',
+    'UbislateTablet', 'PocketBookTablet', 'KocasoTablet', 'HisenseTablet', 'Hudl', 'TelstraTablet',
+];
 const BROWSER_VERSIONS_RE = Object.keys(BROWSER_VERSIONS_RE_MAP).reduce((obj, key) => {
     obj[BROWSERS[key]] = BROWSER_VERSIONS_RE_MAP[key];
     return obj;
 }, {});
-
-var Constants = /*#__PURE__*/Object.freeze({
-    __proto__: null,
-    BROWSERS: BROWSERS,
-    BROWSERS_RE: BROWSERS_RE,
-    BROWSER_VERSIONS_RE: BROWSER_VERSIONS_RE,
-    BROWSER_VERSIONS_RE_MAP: BROWSER_VERSIONS_RE_MAP,
-    DESKTOP_DEVICES: DESKTOP_DEVICES,
-    DEVICES: DEVICES,
-    DEVICES_RE: DEVICES_RE,
-    GENERAL: GENERAL,
-    MOBILES_RE: MOBILES_RE,
-    OS: OS,
-    OS_RE: OS_RE,
-    OS_VERSIONS: OS_VERSIONS,
-    OS_VERSIONS_RE: OS_VERSIONS_RE,
-    OS_VERSIONS_RE_MAP: OS_VERSIONS_RE_MAP,
-    TABLETS_RE: TABLETS_RE
-});
 
 /**
  * Created by ahsanayaz on 08/11/2016.
@@ -656,6 +884,355 @@ var OrientationType;
     OrientationType["Landscape"] = "landscape";
 })(OrientationType || (OrientationType = {}));
 const iPad = 'iPad';
+const reTree = new ReTree();
+// OS families that run a real desktop-class operating system. isDesktop() uses this as its
+// primary signal instead of a finite device-brand list, which is what actually fixes generic
+// Windows/Linux desktops resolving to `Unknown`.
+const DESKTOP_OS_VALUES = new Set([
+    OS.WINDOWS,
+    OS.MAC,
+    OS.LINUX,
+    OS.CHROME_OS,
+    OS.UNIX,
+]);
+// Non-desktop devices that are neither "mobile" nor "tablet" in the classic sense (consoles,
+// streaming/TV devices) so isDesktop() correctly excludes them even on a Linux-based OS.
+const NON_DESKTOP_DEVICE_VALUES = new Set([
+    DEVICES.PS4,
+    DEVICES.PS5,
+    DEVICES.XBOX,
+    DEVICES.CHROMECAST,
+    DEVICES.APPLE_TV,
+    DEVICES.GOOGLE_TV,
+    DEVICES.VITA,
+].filter(Boolean));
+const HEAVY_MOBILE_KEY_SET = new Set(HEAVY_LEGACY_MOBILE_KEYS);
+const HEAVY_TABLET_KEY_SET = new Set(HEAVY_LEGACY_TABLET_KEYS);
+/** Small bounded LRU-ish cache so repeatedly parsing the same UA (resize handlers, repeated
+ *  `getDeviceInfo()` calls, many requests sharing a UA on a server) doesn't re-run ~250 regexes
+ *  every time. Bounded size prevents unbounded memory growth if used server-side across many
+ *  distinct UAs. */
+class BoundedCache {
+    maxSize;
+    map = new Map();
+    constructor(maxSize = 50) {
+        this.maxSize = maxSize;
+    }
+    get(key) {
+        const value = this.map.get(key);
+        if (value !== undefined) {
+            // refresh recency
+            this.map.delete(key);
+            this.map.set(key, value);
+        }
+        return value;
+    }
+    set(key, value) {
+        if (this.map.size >= this.maxSize) {
+            const oldestKey = this.map.keys().next().value;
+            if (oldestKey !== undefined) {
+                this.map.delete(oldestKey);
+            }
+        }
+        this.map.set(key, value);
+    }
+}
+const parseCache = new BoundedCache(50);
+const customDevices = [];
+const customBrowsers = [];
+const customOSes = [];
+function safeTest(ua, regex) {
+    try {
+        return reTree.test(ua, regex);
+    }
+    catch {
+        return false; // A malformed custom regex (or an unexpected engine quirk) never crashes detection.
+    }
+}
+function findCustomMatch(ua, list) {
+    return list.find((entry) => safeTest(ua, entry.regex));
+}
+/**
+ * Register a custom device detector, checked with top priority before the built-in list.
+ * Example: `registerCustomDevice('MyCorp Kiosk', /MyCorpKioskApp\/[\d.]+/)`.
+ */
+function registerCustomDevice(name, regex) {
+    customDevices.unshift({ name, regex });
+}
+/**
+ * Register a custom browser detector, checked with top priority before the built-in list.
+ * `versionRegex`, if given, should have one capture group for the version string.
+ */
+function registerCustomBrowser(name, regex, versionRegex) {
+    customBrowsers.unshift({ name, regex, versionRegex });
+}
+/**
+ * Register a custom OS detector, checked with top priority before the built-in list. Pass
+ * `isDesktopOS: true` if this OS should count as a desktop for `isDesktop()`/`deviceType`.
+ */
+function registerCustomOS(name, regex, opts) {
+    customOSes.unshift({ name, regex, isDesktopOS: !!opts?.isDesktopOS });
+    if (opts?.isDesktopOS) {
+        DESKTOP_OS_VALUES.add(name);
+    }
+}
+/** Clears all custom registrations. Mainly useful in tests. */
+function clearCustomDetectors() {
+    customDevices.length = 0;
+    customBrowsers.length = 0;
+    customOSes.length = 0;
+}
+// --- Core, dependency-free parsing --------------------------------------------------------
+// Pulled out of the Angular service so it (a) can be unit-tested/used without Angular at all —
+// e.g. in a plain Node script or SSR middleware inspecting an arbitrary request's UA header —
+// and (b) never touches `window`/`navigator`, so it can't misbehave when parsing someone else's
+// UA string on a server that itself happens to be running in some other environment.
+function resolveOS(ua) {
+    for (const custom of customOSes) {
+        if (safeTest(ua, custom.regex)) {
+            return custom.name;
+        }
+    }
+    const keys = Object.keys(OS);
+    for (const key of keys) {
+        const value = OS[key];
+        if (value === OS.UNKNOWN)
+            continue;
+        if (safeTest(ua, OS_RE[key])) {
+            return value;
+        }
+    }
+    return OS.UNKNOWN;
+}
+function resolveBrowser(ua) {
+    for (const custom of customBrowsers) {
+        if (safeTest(ua, custom.regex)) {
+            return custom.name;
+        }
+    }
+    const keys = Object.keys(BROWSERS);
+    for (const key of keys) {
+        const value = BROWSERS[key];
+        if (value === BROWSERS.UNKNOWN)
+            continue;
+        if (safeTest(ua, BROWSERS_RE[key])) {
+            return value;
+        }
+    }
+    return BROWSERS.UNKNOWN;
+}
+function resolveBrowserVersion(ua, browser) {
+    if (browser === BROWSERS.UNKNOWN) {
+        return '0';
+    }
+    const custom = customBrowsers.find((entry) => entry.name === browser);
+    const re = custom?.versionRegex ?? BROWSER_VERSIONS_RE[browser];
+    try {
+        const res = reTree.exec(ua, re);
+        return res ? res[1] : '0';
+    }
+    catch {
+        return '0';
+    }
+}
+function resolveDevice(ua, isTouchMacIPad, basicMode) {
+    for (const custom of customDevices) {
+        if (safeTest(ua, custom.regex)) {
+            return custom.name;
+        }
+    }
+    if (isTouchMacIPad) {
+        return DEVICES.iPad;
+    }
+    const keys = Object.keys(DEVICES);
+    let androidFallbackMatched = false;
+    for (const key of keys) {
+        const value = DEVICES[key];
+        if (value === DEVICES.UNKNOWN)
+            continue;
+        if (basicMode && (HEAVY_MOBILE_KEY_SET.has(key) || HEAVY_TABLET_KEY_SET.has(key))) {
+            continue; // skip obsolete legacy model regexes in basic/fast mode
+        }
+        if (safeTest(ua, DEVICES_RE[key])) {
+            // Prefer a specific brand/model match over the generic "Android" catch-all: keep scanning
+            // instead of returning immediately when we only hit the generic Android family.
+            if (value === DEVICES.ANDROID) {
+                androidFallbackMatched = true;
+                continue;
+            }
+            return value;
+        }
+    }
+    return androidFallbackMatched ? DEVICES.ANDROID : DEVICES.UNKNOWN;
+}
+function resolveOsVersion(ua, os) {
+    // Only test the ~5-10 version regexes relevant to the already-detected OS instead of all ~45
+    // of them — faster, and immune to a pathological UA that happens to contain a substring
+    // belonging to a completely different OS's version regex.
+    const relevantKeys = OS_VERSION_GROUPS[os] ?? Object.keys(OS_VERSIONS_RE_MAP);
+    for (const key of relevantKeys) {
+        if (safeTest(ua, OS_VERSIONS_RE[key])) {
+            return OS_VERSIONS[key];
+        }
+    }
+    return OS_VERSIONS.UNKNOWN;
+}
+function resolveOsDistro(ua, os) {
+    if (os !== OS.LINUX) {
+        return GENERAL.UKNOWN;
+    }
+    const distroKey = Object.keys(LINUX_DISTROS_RE).find((key) => safeTest(ua, LINUX_DISTROS_RE[key]));
+    if (!distroKey) {
+        return GENERAL.UKNOWN;
+    }
+    return distroKey
+        .toLowerCase()
+        .split('_')
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ');
+}
+const GENERIC_MOBILE_FALLBACK_KEYS = new Set(['GENERIC_ANDROID_MOBILE', 'GENERIC_HARMONYOS_MOBILE']);
+const GENERIC_TABLET_FALLBACK_KEYS = new Set(['GENERIC_ANDROID_TABLET', 'GENERIC_HARMONYOS_TABLET']);
+function hasSpecificMobileModelMatch(ua, basicMode) {
+    return Object.keys(MOBILES_RE).some((key) => {
+        if (GENERIC_MOBILE_FALLBACK_KEYS.has(key))
+            return false; // these are the generic fallbacks themselves
+        if (basicMode && HEAVY_MOBILE_KEY_SET.has(key))
+            return false;
+        return safeTest(ua, MOBILES_RE[key]);
+    });
+}
+function isMobileUA(ua, basicMode, alreadyKnownTablet) {
+    if (alreadyKnownTablet ?? isTabletUA(ua, basicMode)) {
+        return false;
+    }
+    return Object.keys(MOBILES_RE).some((key) => {
+        if (basicMode && HEAVY_MOBILE_KEY_SET.has(key))
+            return false;
+        return safeTest(ua, MOBILES_RE[key]);
+    });
+}
+function isTabletUA(ua, basicMode, isTouchMacIPad = false) {
+    if (isTouchMacIPad || safeTest(ua, TABLETS_RE[iPad])) {
+        return true;
+    }
+    const specificTabletMatch = Object.keys(TABLETS_RE).some((key) => {
+        if (GENERIC_TABLET_FALLBACK_KEYS.has(key))
+            return false; // checked separately, last, below
+        if (basicMode && HEAVY_TABLET_KEY_SET.has(key))
+            return false;
+        return safeTest(ua, TABLETS_RE[key]);
+    });
+    if (specificTabletMatch) {
+        return true;
+    }
+    // The generic "no 'Mobile' token = tablet" heuristics (Android/HarmonyOS) are a best-effort
+    // fallback for unrecognized tablets. But some old/atypical phone UAs also omit that token, so
+    // only trust the heuristic when there's no SPECIFIC known phone model match — a specific
+    // brand/model regex is a much stronger signal than the generic heuristic and should always
+    // win. (Without this check, e.g. a legacy Motorola/Samsung phone UA missing the "Mobile" token
+    // would be wrongly classified as a tablet despite the device engine correctly identifying its
+    // exact brand.)
+    if (hasSpecificMobileModelMatch(ua, basicMode)) {
+        return false;
+    }
+    return (safeTest(ua, TABLETS_RE.GENERIC_ANDROID_TABLET) ||
+        safeTest(ua, TABLETS_RE.GENERIC_HARMONYOS_TABLET));
+}
+function isDesktopUA(ua, os, device, isMobileResult, isTabletResult) {
+    if (isMobileResult || isTabletResult) {
+        return false;
+    }
+    if (NON_DESKTOP_DEVICE_VALUES.has(device)) {
+        return false;
+    }
+    if (DESKTOP_OS_VALUES.has(os)) {
+        return true;
+    }
+    return DESKTOP_DEVICES.indexOf(device) > -1;
+}
+/**
+ * Pure, Angular-free UA parser. Safe to call with any UA string from anywhere (including a
+ * server processing many different requests concurrently) — it holds no shared mutable state
+ * per call, only the small bounded result cache above.
+ *
+ * Never throws: on any unexpected error it falls back to an all-`Unknown` result rather than
+ * taking down the caller.
+ */
+function parseUserAgent(ua, options = {}) {
+    const safeUa = typeof ua === 'string' ? ua.trim() : '';
+    // A blank/missing UA carries no signal at all — report it honestly as Unknown rather than
+    // falling through to the legacy "unrecognized device defaults to desktop" heuristic below,
+    // which exists for *unrecognized-but-present* UAs, not empty ones. Also a nice perf win: skip
+    // ~250 regex evaluations for input that can never match anything.
+    if (!safeUa) {
+        return {
+            userAgent: safeUa,
+            os: OS.UNKNOWN,
+            browser: BROWSERS.UNKNOWN,
+            device: DEVICES.UNKNOWN,
+            os_version: OS_VERSIONS.UNKNOWN,
+            browser_version: '0',
+            deviceType: DeviceType.Unknown,
+            orientation: GENERAL.UKNOWN,
+            osDistro: GENERAL.UKNOWN,
+            isBot: false,
+        };
+    }
+    const cacheKey = `${options.basicMode ? '1' : '0'}::${safeUa}`;
+    const cached = parseCache.get(cacheKey);
+    if (cached) {
+        return cached;
+    }
+    try {
+        const basicMode = !!options.basicMode;
+        // Touch-enabled "MacIntel" is how iPadOS 13+ identifies itself when requesting desktop
+        // Safari (the default) — this can only be checked from within a real browser, so
+        // parseUserAgent() (which may run outside one) intentionally does not attempt it; the
+        // Angular service layers this check on top for its own live browser context.
+        const os = resolveOS(safeUa);
+        const browser = resolveBrowser(safeUa);
+        const device = resolveDevice(safeUa, false, basicMode);
+        const os_version = resolveOsVersion(safeUa, os);
+        const browser_version = resolveBrowserVersion(safeUa, browser);
+        const osDistro = resolveOsDistro(safeUa, os);
+        const isBot = safeTest(safeUa, BOTS_RE);
+        const tablet = isTabletUA(safeUa, basicMode);
+        const mobile = isMobileUA(safeUa, basicMode, tablet);
+        const desktop = isDesktopUA(safeUa, os, device, mobile, tablet);
+        const deviceType = tablet ? DeviceType.Tablet : mobile ? DeviceType.Mobile : desktop ? DeviceType.Desktop : DeviceType.Unknown;
+        const result = {
+            userAgent: safeUa,
+            os,
+            browser,
+            device,
+            os_version,
+            browser_version,
+            deviceType,
+            orientation: GENERAL.UKNOWN,
+            osDistro,
+            isBot,
+        };
+        parseCache.set(cacheKey, result);
+        return result;
+    }
+    catch {
+        // A single malformed UA / unexpected runtime quirk should never crash the caller.
+        const fallback = {
+            userAgent: safeUa,
+            os: OS.UNKNOWN,
+            browser: BROWSERS.UNKNOWN,
+            device: DEVICES.UNKNOWN,
+            os_version: OS_VERSIONS.UNKNOWN,
+            browser_version: '0',
+            deviceType: DeviceType.Unknown,
+            orientation: GENERAL.UKNOWN,
+            osDistro: GENERAL.UKNOWN,
+            isBot: false,
+        };
+        return fallback;
+    }
+}
 class RmNgDeviceDetectionService {
     platformId;
     ua = '';
@@ -665,9 +1242,19 @@ class RmNgDeviceDetectionService {
     device = '';
     os_version = '';
     browser_version = '';
-    reTree = new ReTree();
+    osDistro = GENERAL.UKNOWN;
+    isBot = false;
+    reTree = reTree; // exposed for backward compatibility with any existing direct usage
     deviceType = '';
     orientation = '';
+    width = 0;
+    height = 0;
+    resolution = '';
+    devicePixelRatio = 1;
+    /** True once setDeviceInfo() has run at least once without an unexpected error. Useful in
+     *  templates/guards that want to wait for real detection before branching on deviceType. */
+    ready = false;
+    lastBasicMode = false;
     constructor(platformId) {
         this.platformId = platformId;
         if (isPlatformBrowser(this.platformId) && typeof window !== 'undefined') {
@@ -675,102 +1262,38 @@ class RmNgDeviceDetectionService {
         }
         this.setDeviceInfo(this.userAgent);
     }
-    setDeviceInfo(ua = this.userAgent) {
-        if (ua !== this.userAgent) {
-            this.userAgent = ua;
+    /**
+     * Runs full detection for the given UA (defaults to the current browser's). Wrapped in a
+     * try/catch internally via `parseUserAgent()` — a bad UA string or unexpected runtime quirk
+     * degrades to `Unknown` fields rather than throwing.
+     *
+     * Pass `{ basicMode: true }` to skip ~150 obsolete legacy device regexes for a meaningful perf
+     * win on high-traffic paths; see `DetectionOptions.basicMode` for details.
+     */
+    setDeviceInfo(ua = this.userAgent, options = {}) {
+        this.userAgent = typeof ua === 'string' ? ua : '';
+        this.lastBasicMode = !!options.basicMode;
+        const isTouchMacIPad = isPlatformBrowser(this.platformId) &&
+            typeof navigator !== 'undefined' &&
+            navigator.platform === 'MacIntel' &&
+            navigator.maxTouchPoints > 1;
+        // The iPad-desktop-mode signal only exists in a live browser, so it can't be folded into the
+        // cached, dependency-free parseUserAgent() path — recompute device/tablet/mobile/desktop
+        // locally when it applies, and reuse parseUserAgent() for everything else.
+        const parsed = parseUserAgent(this.userAgent, options);
+        this.os = parsed.os;
+        this.browser = parsed.browser;
+        this.os_version = parsed.os_version;
+        this.browser_version = parsed.browser_version;
+        this.osDistro = parsed.osDistro;
+        this.isBot = parsed.isBot;
+        if (isTouchMacIPad) {
+            this.device = DEVICES.iPad;
+            this.deviceType = DeviceType.Tablet;
         }
-        const mappings = [
-            { const: 'OS', prop: 'os' },
-            { const: 'BROWSERS', prop: 'browser' },
-            { const: 'DEVICES', prop: 'device' },
-            { const: 'OS_VERSIONS', prop: 'os_version' },
-        ];
-        mappings.forEach((mapping) => {
-            this[mapping.prop] = Object.keys(Constants[mapping.const]).reduce((obj, item) => {
-                if (Constants[mapping.const][item] === 'device') {
-                    // hack for iOS 13 Tablet
-                    if (isPlatformBrowser(this.platformId) &&
-                        (!!this.reTree.test(this.userAgent, TABLETS_RE[iPad]) ||
-                            (navigator.platform === 'MacIntel' &&
-                                navigator.maxTouchPoints > 1))) {
-                        obj[Constants[mapping.const][item]] =
-                            iPad;
-                        return Object;
-                    }
-                }
-                // obj[Constants[mapping.const  as keyof typeof Constants][item]] = this.reTree.test(ua, Constants[`${mapping.const}_RE`][item]);
-                obj[Constants[mapping.const][item]] = this.reTree.test(ua, Constants[`${mapping.const}_RE`][item]);
-                return obj;
-            }, {});
-        });
-        // mappings.forEach(mapping => {
-        //   this[mapping.prop] = Object.keys(Constants[mapping.const  as keyof typeof Constants])
-        //     .map(key => {
-        //       return Constants[mapping.const  as keyof typeof Constants][key];
-        //     })
-        //     .reduce((previousValue, currentValue) => {
-        //       if (mapping.prop === 'device' && previousValue === Constants[mapping.const  as keyof typeof Constants].ANDROID) {
-        //         // if we have the actual device found, instead of 'Android', return the actual device
-        //         return this[mapping.prop][currentValue] ? currentValue : previousValue;
-        //       } else {
-        //         return previousValue === Constants[mapping.const  as keyof typeof Constants].UNKNOWN && this[mapping.prop][currentValue]
-        //           ? currentValue
-        //           : previousValue;
-        //       }
-        //     }, Constants[mapping.const  as keyof typeof Constants].UNKNOWN);
-        // });
-        // mappings.forEach(mapping => {
-        //   const prop = this[mapping.prop];
-        //   if (typeof prop === 'object' && prop !== null) {
-        //     this[mapping.prop] = Object.keys(Constants[mapping.const as keyof typeof Constants])
-        //       .map(key => {
-        //         return Constants[mapping.const as keyof typeof Constants][key];
-        //       })
-        //       .reduce((previousValue, currentValue) => {
-        //         if (mapping.prop === 'device' && previousValue === Constants[mapping.const as keyof typeof Constants].ANDROID) {
-        //           return prop[currentValue] ? currentValue : previousValue;
-        //         } else {
-        //           return previousValue === Constants[mapping.const as keyof typeof Constants].UNKNOWN && prop[currentValue]
-        //             ? currentValue
-        //             : previousValue;
-        //         }
-        //       }, Constants[mapping.const as keyof typeof Constants].UNKNOWN);
-        //   }
-        // });
-        mappings.forEach((mapping) => {
-            // Cast `this[mapping.prop]` as an object with string keys and any values
-            const prop = this[mapping.prop];
-            // Cast Constants[mapping.const] to the expected type
-            const constantsMapping = Constants[mapping.const];
-            // Ensure `mapping.prop` is an object and not null
-            if (typeof prop === 'object' && prop !== null) {
-                this[mapping.prop] = Object.keys(constantsMapping)
-                    .map((key) => constantsMapping[key])
-                    .reduce((previousValue, currentValue) => {
-                    if (mapping.prop === 'device' &&
-                        previousValue ===
-                            Constants[mapping.const].ANDROID) {
-                        // Return the actual device if found
-                        return prop[currentValue] ? currentValue : previousValue;
-                    }
-                    else {
-                        // Return the currentValue if it’s found in `prop`
-                        return previousValue ===
-                            Constants[mapping.const].UNKNOWN &&
-                            prop[currentValue]
-                            ? currentValue
-                            : previousValue;
-                    }
-                }, Constants[mapping.const].UNKNOWN);
-            }
-        });
-        this.browser_version = '0';
-        if (this.browser !== BROWSERS.UNKNOWN) {
-            const re = BROWSER_VERSIONS_RE[this.browser];
-            const res = this.reTree.exec(ua, re);
-            if (!!res) {
-                this.browser_version = res[1];
-            }
+        else {
+            this.device = parsed.device;
+            this.deviceType = parsed.deviceType;
         }
         if (typeof window !== 'undefined' && window && window.matchMedia) {
             this.orientation = window.matchMedia('(orientation: landscape)').matches
@@ -780,16 +1303,31 @@ class RmNgDeviceDetectionService {
         else {
             this.orientation = GENERAL.UKNOWN;
         }
-        this.deviceType = this.isTablet()
-            ? DeviceType.Tablet
-            : this.isMobile(this.userAgent)
-                ? DeviceType.Mobile
-                : this.isDesktop(this.userAgent)
-                    ? DeviceType.Desktop
-                    : DeviceType.Unknown;
+        this.updateScreenInfo();
+        this.ready = true;
+    }
+    /**
+     * Refreshes width/height/resolution/devicePixelRatio from the current window/screen state.
+     * Called automatically inside setDeviceInfo(), but it's also public so you can call it from
+     * your own `window:resize` HostListener to keep these values current without re-running the
+     * (comparatively expensive) UA parsing.
+     */
+    updateScreenInfo() {
+        if (isPlatformBrowser(this.platformId) && typeof window !== 'undefined' && window.screen) {
+            this.width = window.innerWidth || 0;
+            this.height = window.innerHeight || 0;
+            this.resolution = `${window.screen.width}x${window.screen.height}`;
+            this.devicePixelRatio = window.devicePixelRatio || 1;
+        }
+        else {
+            this.width = 0;
+            this.height = 0;
+            this.resolution = GENERAL.UKNOWN;
+            this.devicePixelRatio = 1;
+        }
     }
     getDeviceInfo() {
-        const deviceInfo = {
+        return {
             userAgent: this.userAgent,
             os: this.os,
             browser: this.browser,
@@ -798,38 +1336,71 @@ class RmNgDeviceDetectionService {
             browser_version: this.browser_version,
             deviceType: this.deviceType,
             orientation: this.orientation,
+            osDistro: this.osDistro,
+            isBot: this.isBot,
+            width: this.width,
+            height: this.height,
+            resolution: this.resolution,
+            devicePixelRatio: this.devicePixelRatio,
         };
-        return deviceInfo;
     }
     isMobile(userAgent = this.userAgent) {
-        if (this.isTablet(userAgent)) {
-            return false;
-        }
-        const match = Object.keys(MOBILES_RE).find((mobile) => {
-            return this.reTree.test(userAgent, MOBILES_RE[mobile]);
-        });
-        return !!match;
+        return isMobileUA(userAgent, this.lastBasicMode);
     }
     isTablet(userAgent = this.userAgent) {
-        if (isPlatformBrowser(this.platformId) &&
-            (!!this.reTree.test(this.userAgent, TABLETS_RE[iPad]) ||
-                (typeof navigator !== 'undefined' &&
-                    navigator.platform === 'MacIntel' &&
-                    navigator.maxTouchPoints > 1))) {
-            return true;
-        }
-        const match = Object.keys(TABLETS_RE).find((mobile) => {
-            return !!this.reTree.test(userAgent, TABLETS_RE[mobile]);
-        });
-        return !!match;
+        const isTouchMacIPad = isPlatformBrowser(this.platformId) &&
+            typeof navigator !== 'undefined' &&
+            navigator.platform === 'MacIntel' &&
+            navigator.maxTouchPoints > 1;
+        return isTabletUA(userAgent, this.lastBasicMode, isTouchMacIPad);
     }
     isDesktop(userAgent = this.userAgent) {
-        if (this.device === DEVICES.UNKNOWN) {
-            if (this.isMobile(userAgent) || this.isTablet(userAgent)) {
+        const tablet = this.isTablet(userAgent);
+        const mobile = !tablet && this.isMobile(userAgent);
+        return isDesktopUA(userAgent, this.os, this.device, mobile, tablet);
+    }
+    /**
+     * Best-effort, ASYNC Windows 11 detection using the User-Agent Client Hints API.
+     *
+     * Why this exists: Chromium, Firefox and Safari all freeze the UA string's platform token at
+     * `Windows NT 10.0` for Windows 10 *and* 11 (and future versions) as an anti-fingerprinting
+     * measure — there is no synchronous, UA-string-only way to tell them apart, in this library or
+     * any other. Call this after `setDeviceInfo()`; if it resolves `true`, set
+     * `this.os_version = 'windows-11'` yourself, since mutating shared state from inside an async
+     * callback here would be surprising.
+     */
+    async detectWindows11ViaClientHints() {
+        const uaData = (typeof navigator !== 'undefined' && navigator.userAgentData) || null;
+        if (!uaData || typeof uaData.getHighEntropyValues !== 'function') {
+            return false; // Client Hints unsupported (Safari, Firefox, older Chromium) — can't tell.
+        }
+        try {
+            const { platform, platformVersion } = await uaData.getHighEntropyValues(['platform', 'platformVersion']);
+            if (platform !== 'Windows' || !platformVersion) {
                 return false;
             }
+            // Per Chromium's documented mapping: Windows 11 starts at platformVersion major >= 13.
+            return parseInt(platformVersion.split('.')[0], 10) >= 13;
         }
-        return DESKTOP_DEVICES.indexOf(this.device) > -1;
+        catch {
+            return false;
+        }
+    }
+    /**
+     * Best-effort Brave detection via feature detection rather than the UA string, since Brave
+     * deliberately reports itself as plain Chrome to resist fingerprinting.
+     */
+    async isBraveViaFeatureDetection() {
+        const brave = (typeof navigator !== 'undefined' && navigator.brave) || null;
+        if (!brave || typeof brave.isBrave !== 'function') {
+            return false;
+        }
+        try {
+            return await brave.isBrave();
+        }
+        catch {
+            return false;
+        }
     }
     static ɵfac = i0.ɵɵngDeclareFactory({ minVersion: "12.0.0", version: "22.0.1", ngImport: i0, type: RmNgDeviceDetectionService, deps: [{ token: PLATFORM_ID }], target: i0.ɵɵFactoryTarget.Injectable });
     static ɵprov = i0.ɵɵngDeclareInjectable({ minVersion: "12.0.0", version: "22.0.1", ngImport: i0, type: RmNgDeviceDetectionService, providedIn: 'root' });
@@ -852,5 +1423,5 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "22.0.1", ngImpor
  * Generated bundle index. Do not edit.
  */
 
-export { DeviceType, OrientationType, ReTree, RmNgDeviceDetectionService };
+export { DeviceType, OrientationType, ReTree, RmNgDeviceDetectionService, clearCustomDetectors, parseUserAgent, registerCustomBrowser, registerCustomDevice, registerCustomOS };
 //# sourceMappingURL=rm-ng-device-detection.mjs.map
